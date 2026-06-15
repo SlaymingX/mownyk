@@ -3,7 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LinguaFlow</title>
+<title>Мовник</title>
+<meta name="application-name" content="Mownyk">
+<meta name="description" content="Мовник — застосунок для вивчення мов">
+<meta name="theme-color" content="#4a3fc0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Мовник">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/appicon.png">
+<link rel="manifest" href="/manifest.json">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -160,6 +170,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes tin{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 .toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--err)}
 
+
+/* ── sync badge ── */
+.sync-badge{font-size:11px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border2);color:var(--text3);background:var(--surface2);white-space:nowrap}
+.sync-badge.syncing{color:var(--accent);border-color:var(--accent);background:var(--accent-light)}
+.sync-badge.error{color:var(--err);border-color:var(--err);background:var(--err-bg)}
+
+/* ── auth overlay ── */
+.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:36px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.auth-logo{font-size:48px;margin-bottom:12px}
+.auth-title{font-size:22px;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:-.5px}
+.auth-sub{font-size:14px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+.auth-btn{display:inline-flex;align-items:center;gap:10px;padding:12px 24px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;transition:background var(--tr),box-shadow var(--tr);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.auth-btn:hover{background:var(--surface2);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+
 /* ── gemini panel ── */
 .gem-panel{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);margin-top:16px;overflow:hidden}
 .gem-head{padding:10px 14px;background:var(--surface2);border-bottom:.5px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
@@ -176,27 +201,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gem-result.loading{color:var(--text3);font-style:italic}
 .gem-result.error{color:var(--err)}
 .gem-footer{padding:10px 14px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
-
-/* ── google auth overlay ── */
-.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
-.auth-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:36px 30px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)}
-.auth-logo{font-size:40px;margin-bottom:10px}
-.auth-title{font-size:20px;font-weight:700;color:var(--accent);margin-bottom:8px}
-.auth-sub{font-size:13px;color:var(--text2);margin-bottom:22px;line-height:1.6}
-.auth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 16px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;font-weight:500;cursor:pointer;transition:background var(--tr)}
-.auth-btn:hover{background:var(--accent-light)}
-
-/* ── sync badge ── */
-.sync-badge{font-size:11px;font-weight:500;color:var(--text3);padding:5px 10px;border-radius:8px;background:var(--surface2);border:.5px solid var(--border);white-space:nowrap}
-.sync-badge.syncing{color:var(--accent);border-color:var(--accent)}
-.sync-badge.error{color:var(--err);border-color:var(--err);background:var(--err-bg)}
-
 </style>
 </head>
 <body>
 
 <header class="hdr">
-  <div class="logo">🌐 LinguaFlow</div>
+  <div class="logo">🌐 Мовник</div>
   <nav class="bc" id="bc"></nav>
   <div class="hdr-r" id="hdrR"></div>
 </header>
@@ -385,7 +395,7 @@ let openTwIdx=-1; // which .tw is currently open (has inline input)
 // ──────────────────────────────────────────────────────
 // GOOGLE DRIVE SYNC
 // ──────────────────────────────────────────────────────
-const GDRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // ← замінити
+const GDRIVE_CLIENT_ID = '706161548380-19gntpoehss4jld2fa4ofogk1ucg589h.apps.googleusercontent.com'; // ← замінити
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const GDRIVE_FILE_NAME = 'linguaflow.json';
 
@@ -424,8 +434,7 @@ async function gdriveSignIn(){
 function gdriveSignOut(){
   gToken=null; gFileId=null
   localStorage.removeItem('lf_token')
-  try{const s=localStorage.getItem('lf4'); DB=s?JSON.parse(s):{langs:[]}}catch(e){DB={langs:[]}}
-  goLangs()
+  DB={langs:[]}
   document.getElementById('authOverlay').style.display='flex'
 }
 
@@ -1186,13 +1195,20 @@ async function init(){
   renderHdrR()
 }
 init()
+
+// ── PWA Service Worker ─────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('SW:',e))
+  })
+}
 </script>
 
 <!-- AUTH OVERLAY -->
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-card">
     <div class="auth-logo">🌐</div>
-    <div class="auth-title">LinguaFlow</div>
+    <div class="auth-title">Мовник</div>
     <div class="auth-sub">Увійдіть через Google, щоб зберігати свій прогрес у Google Drive</div>
     <button class="auth-btn" onclick="gdriveSignIn()">
       <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>

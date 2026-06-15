@@ -1,0 +1,25 @@
+{
+  "name": "Мовник",
+  "short_name": "Мовник",
+  "description": "Застосунок для вивчення мов",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f3",
+  "theme_color": "#4a3fc0",
+  "lang": "uk",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/appicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/appicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
