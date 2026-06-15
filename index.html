@@ -946,13 +946,15 @@ function gemTransfer(){
   const raw=window._gemResult||''
   if(!raw){toast('Немає згенерованого тексту','err');return}
 
-  // Parse "Текст 1: ... Текст 2: ..."
-  const m1=raw.indexOf('Текст 1:')
-  const m2=raw.indexOf('Текст 2:')
-  if(m1===-1||m2===-1){toast('Не вдалося розпізнати структуру (потрібні "Текст 1:" і "Текст 2:")','err');return}
+  // Parse "Текст 1" / "Текст 2" with or without colon
+  const re1=/Текст\s*1\s*:?/i
+  const re2=/Текст\s*2\s*:?/i
+  const match1=re1.exec(raw)
+  const match2=re2.exec(raw)
+  if(!match1||!match2){toast('Не вдалося розпізнати структуру (потрібні "Текст 1" і "Текст 2")','err');return}
 
-  const text1=raw.slice(m1+8, m2).trim()
-  const text2=raw.slice(m2+8).trim()
+  const text1=raw.slice(match1.index+match1[0].length, match2.index).trim()
+  const text2=raw.slice(match2.index+match2[0].length).trim()
 
   const task=gt(curLang,curTask)
   if(!task){toast('Завдання не вибрано','err');return}
