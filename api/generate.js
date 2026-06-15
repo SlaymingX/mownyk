@@ -31,10 +31,14 @@ ${words.trim()}`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            }
+          ],
           generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 8000,
+            maxOutputTokens: 8192,
           },
         }),
       }
