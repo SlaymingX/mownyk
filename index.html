@@ -368,4 +368,874 @@ const PRESETS=[
   {flag:'🇷🇺',name:'Російська',native:'Русский'},
   {flag:'🇬🇧',name:'Англійська',native:'English'},
   {flag:'🇩🇪',name:'Німецька',native:'Deutsch'},
-  {
+  {flag:'🇫🇷',name:'Французька',native:'Français'},
+  {flag:'🇪🇸',name:'Іспанська',native:'Español'},
+  {flag:'🇮🇹',name:'Італійська',native:'Italiano'},
+  {flag:'🇵🇱',name:'Польська',native:'Polski'},
+  {flag:'🇨🇿',name:'Чеська',native:'Čeština'},
+  {flag:'🇯🇵',name:'Японська',native:'日本語'},
+  {flag:'🇨🇳',name:'Китайська',native:'中文'},
+  {flag:'🇰🇷',name:'Корейська',native:'한국어'},
+  {flag:'🇵🇹',name:'Португальська',native:'Português'},
+  {flag:'🇸🇪',name:'Шведська',native:'Svenska'},
+  {flag:'🇹🇷',name:'Турецька',native:'Türkçe'},
+  {flag:'🇸🇦',name:'Арабська',native:'العربية'},
+];
+
+let DB={langs:[]};
+
+let curLang=null, curTask=null, curDir='A', curMode='edit';
+let editingLang=null, editingTask=null;
+
+// practiceWords: array of {origText, expected, userAnswer, status:'none'|'ok'|'err'}
+// indexed same as .tw elements in the DOM
+let pWords=[];
+let openTwIdx=-1; // which .tw is currently open (has inline input)
+
+// ──────────────────────────────────────────────────────
+// GOOGLE DRIVE SYNC
+// ──────────────────────────────────────────────────────
+const GDRIVE_CLIENT_ID = '706161548380-19gntpoehss4jld2fa4ofogk1ucg589h.apps.googleusercontent.com';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_FILE_NAME = 'linguaflow.json';
+
+let gToken = null;
+let gTokenClient = null;
+let gFileId = null;
+let gSaveTimer = null;
+
+// GIS is loaded eagerly in gdriveInit so the sign-in click
+// never needs to await anything — preserving the user-gesture chain.
+function initTokenClient(){
+  gTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GDRIVE_CLIENT_ID,
+    scope: GDRIVE_SCOPE,
+    callback: async(resp)=>{
+      if(resp.error || !resp.access_token){
+        console.error('OAuth error:', resp)
+        const errEl=document.getElementById('authError')
+        if(errEl){
+          errEl.style.display='block'
+          errEl.textContent='Помилка: '+(resp.error||'невідома')+'. Перевірте Authorized JavaScript origins у Google Console.'
+        }
+        setSyncBadge('error','Помилка входу: '+(resp.error||'?'))
+        document.getElementById('authOverlay').style.display='flex'
+        return
+      }
+      gToken = resp.access_token
+      localStorage.setItem('lf_signin','1')
+      document.getElementById('authOverlay').style.display='none'
+      setSyncBadge('syncing','Завантаження…')
+      await gdriveLoad()
+      renderLangs(); showPage('pgLangs')
+      setSyncBadge('','✓ Google Drive')
+      renderHdrR()
+    }
+  })
+}
+
+// Direct click handler — called from onclick, must stay synchronous
+function gdriveSignIn(){
+  if(gTokenClient){
+    // Happy path: client already initialized, call directly (no await = keeps user gesture)
+    gTokenClient.requestAccessToken({prompt:''})
+    return
+  }
+  // Fallback: GIS not yet ready — load it now and retry
+  // We have to break the gesture here, but there's no other option
+  const btn = document.querySelector('.auth-btn')
+  if(btn) btn.textContent = '⏳ Завантаження…'
+  const s = document.createElement('script')
+  s.src = 'https://accounts.google.com/gsi/client'
+  s.onload = () => {
+    initTokenClient()
+    if(btn) btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg> Увійти через Google'
+    setSyncBadge('','Готово — натисніть знову')
+  }
+  s.onerror = () => {
+    if(btn) btn.textContent = 'Помилка — перевірте інтернет'
+    setSyncBadge('error','Не вдалось завантажити Google Auth')
+  }
+  document.head.appendChild(s)
+}
+
+function gdriveSignOut(){
+  if(gToken) google.accounts.oauth2.revoke(gToken, ()=>{})
+  gToken=null; gFileId=null; gTokenClient=null
+  localStorage.removeItem('lf_signin')
+  DB={langs:[]}
+  document.getElementById('authOverlay').style.display='flex'
+  // Re-init client for next login
+  if(window.google?.accounts?.oauth2) initTokenClient()
+  renderHdrR()
+}
+
+function setSyncBadge(cls, text){
+  const b=document.getElementById('syncBadge')
+  if(!b)return
+  b.className='sync-badge '+(cls||'')
+  b.textContent=text
+}
+
+async function gdriveFetch(url, opts={}){
+  const r=await fetch(url,{...opts, headers:{...opts.headers,'Authorization':'Bearer '+gToken}})
+  if(r.status===401){
+    setSyncBadge('error','Сесія закінчилась — увійдіть знову')
+    gToken=null
+    document.getElementById('authOverlay').style.display='flex'
+    renderHdrR()
+    return null
+  }
+  return r
+}
+
+async function gdriveLoad(){
+  const q=encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and spaces='appDataFolder'`)
+  const r=await gdriveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`)
+  if(!r)return
+  const data=await r.json()
+  if(data.files && data.files.length>0){
+    gFileId=data.files[0].id
+    const r2=await gdriveFetch(`https://www.googleapis.com/drive/v3/files/${gFileId}?alt=media`)
+    if(!r2)return
+    try{
+      const json=await r2.json()
+      if(json && json.langs) DB=json
+    }catch(e){console.warn('Drive parse error',e)}
+  } else {
+    await gdriveUpload()
+  }
+}
+
+async function gdriveUpload(){
+  const body=JSON.stringify(DB)
+  const boundary='lf_b_'+Date.now()
+  const meta=JSON.stringify({name:GDRIVE_FILE_NAME, parents:['appDataFolder']})
+  if(!gFileId){
+    const mp=[
+      '--'+boundary,
+      'Content-Type: application/json','',meta,
+      '--'+boundary,
+      'Content-Type: application/json','',body,
+      '--'+boundary+'--'
+    ].join('\r\n')
+    const r=await gdriveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+      method:'POST',
+      headers:{'Content-Type':`multipart/related; boundary=${boundary}`},
+      body:mp
+    })
+    if(!r)return
+    const d=await r.json(); gFileId=d.id
+  } else {
+    await gdriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body
+    })
+  }
+}
+
+function save(){
+  try{localStorage.setItem('lf4',JSON.stringify(DB))}catch(e){}
+  if(!gToken)return
+  clearTimeout(gSaveTimer)
+  setSyncBadge('syncing','Збереження…')
+  gSaveTimer=setTimeout(async()=>{
+    await gdriveUpload()
+    setSyncBadge('','✓ Google Drive')
+  },1200)
+}
+
+async function gdriveInit(){
+  // Load local cache immediately so UI is usable even before sign-in
+  try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
+
+  // Load GIS eagerly (no user gesture needed yet)
+  await new Promise(resolve=>{
+    if(window.google?.accounts?.oauth2){resolve();return}
+    const s=document.createElement('script')
+    s.src='https://accounts.google.com/gsi/client'
+    s.onload=resolve; s.onerror=resolve
+    document.head.appendChild(s)
+  })
+
+  if(!window.google?.accounts?.oauth2){
+    setSyncBadge('error','Не вдалось завантажити Google Auth')
+    return
+  }
+
+  // Init the token client now — before any click
+  initTokenClient()
+
+  const wasSignedIn = localStorage.getItem('lf_signin')
+  if(wasSignedIn){
+    const sub=document.getElementById('authSubText')
+    if(sub) sub.textContent='Ваша сесія закінчилась. Натисніть "Увійти" знову.'
+  }
+
+  // Show the overlay now that GIS is loaded and button will work
+  document.getElementById('authOverlay').style.display='flex'
+}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function gl(id){return DB.langs.find(l=>l.id===id)}
+function gt(lid,tid){return gl(lid)?.tasks?.find(t=>t.id===tid)}
+
+// ──────────────────────────────────────────────────────
+// NAVIGATION
+// ──────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  renderBC(); renderHdrR()
+}
+function renderBC(){
+  let h=''
+  if(curLang){
+    h+=`<span class="bc-a" onclick="goLangs()">Мови</span><span class="bc-s">›</span>`
+    const l=gl(curLang)
+    if(curTask){
+      h+=`<span class="bc-a" onclick="goTasks()">${l.flag} ${esc(l.name)}</span><span class="bc-s">›</span>`
+      h+=`<span class="bc-c">${esc(gt(curLang,curTask)?.name||'')}</span>`
+    }else{
+      h+=`<span class="bc-c">${l.flag} ${esc(l.name)}</span>`
+    }
+  }
+  document.getElementById('bc').innerHTML=h
+}
+function renderHdrR(){
+  const ha=document.getElementById('hdrR')
+  let back=''
+  if(curTask) back=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
+  else if(curLang) back=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
+  ha.innerHTML=back+`
+    <span class="sync-badge" id="syncBadge">${gToken?'✓ Google Drive':'Локально'}</span>
+    ${gToken?`<button class="btn btn-sm" onclick="gdriveSignOut()" title="Вийти">⏏️</button>`:''}
+  `
+}
+function goLangs(){curLang=null;curTask=null;showPage('pgLangs');renderLangs()}
+function goTasks(){curTask=null;showPage('pgTasks');renderTasks()}
+
+// ──────────────────────────────────────────────────────
+// LANGS
+// ──────────────────────────────────────────────────────
+function renderLangs(){
+  let h=''
+  DB.langs.forEach(l=>{
+    h+=`<div class="lcard" onclick="openLang('${l.id}')">
+      <div class="lflag">${l.flag}</div>
+      <div class="lname">${esc(l.name)}</div>
+      <div class="lnative">${esc(l.native||'')}</div>
+      <div class="lact" onclick="event.stopPropagation()">
+        <button class="btn btn-ico btn-sm" onclick="editLangM('${l.id}')">✏️</button>
+        <button class="btn btn-ico btn-sm btn-d" onclick="delLang('${l.id}')">🗑️</button>
+      </div>
+    </div>`
+  })
+  h+=`<div class="ladd" onclick="addLangM()"><span class="plus">+</span><span>Додати мову</span></div>`
+  document.getElementById('langGrid').innerHTML=h
+}
+function openLang(id){
+  curLang=id; const l=gl(id)
+  document.getElementById('tFlag').textContent=l.flag
+  document.getElementById('tTitle').textContent=l.name
+  showPage('pgTasks'); renderTasks()
+}
+function addLangM(){
+  editingLang=null
+  document.getElementById('moLangT').textContent='Додати мову'
+  document.getElementById('lFlag').value=''
+  document.getElementById('lName').value=''
+  document.getElementById('lNative').value=''
+  renderLPG(); openMo('moLang')
+}
+function editLangM(id){
+  editingLang=id; const l=gl(id)
+  document.getElementById('moLangT').textContent='Редагувати мову'
+  document.getElementById('lFlag').value=l.flag
+  document.getElementById('lName').value=l.name
+  document.getElementById('lNative').value=l.native||''
+  renderLPG(); openMo('moLang')
+}
+function renderLPG(){
+  document.getElementById('lpg').innerHTML=PRESETS.map(l=>
+    `<div class="lpi" onclick="pickLP(this,'${l.flag}','${esc(l.name)}','${esc(l.native)}')">
+      <span class="lpif">${l.flag}</span>
+      <div class="lpin">${l.name}</div>
+    </div>`).join('')
+}
+function pickLP(el,flag,name,native){
+  document.querySelectorAll('.lpi').forEach(i=>i.classList.remove('sel'))
+  el.classList.add('sel')
+  document.getElementById('lFlag').value=flag
+  document.getElementById('lName').value=name
+  document.getElementById('lNative').value=native
+}
+function saveLang(){
+  const flag=document.getElementById('lFlag').value.trim()||'🏳'
+  const name=document.getElementById('lName').value.trim()
+  const native=document.getElementById('lNative').value.trim()
+  if(!name){toast('Введіть назву мови','err');return}
+  if(editingLang){const l=gl(editingLang);l.flag=flag;l.name=name;l.native=native}
+  else DB.langs.push({id:uid(),flag,name,native,tasks:[]})
+  save(); closeMo('moLang'); renderLangs()
+  toast(editingLang?'Збережено':'Мову додано ✅','ok')
+}
+function delLang(id){
+  cfm(`Видалити "${gl(id).name}"? Усі завдання буде втрачено.`,()=>{
+    DB.langs=DB.langs.filter(l=>l.id!==id); save(); renderLangs(); toast('Видалено','ok')
+  })
+}
+
+// ──────────────────────────────────────────────────────
+// TASKS
+// ──────────────────────────────────────────────────────
+function renderTasks(){
+  const lang=gl(curLang); let h=''
+  ;(lang.tasks||[]).forEach(t=>{
+    h+=`<div class="titem" onclick="openTask('${t.id}')">
+      <div class="temi">${t.emoji||'📝'}</div>
+      <div class="tinf">
+        <div class="tname">${esc(t.name)}</div>
+        <div class="tmeta">${(t.pA||t.pB)?'Є вміст':'Порожнє'}</div>
+      </div>
+      <div class="tact" onclick="event.stopPropagation()">
+        <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
+        <button class="btn btn-ico btn-sm btn-d" onclick="delTask('${t.id}')">🗑️</button>
+      </div>
+    </div>`
+  })
+  h+=`<div class="tadd" onclick="addTaskM()"><span style="font-size:18px">＋</span><span>Нове завдання</span></div>`
+  document.getElementById('taskList').innerHTML=h
+}
+function addTaskM(){
+  editingTask=null
+  document.getElementById('moTaskT').textContent='Нове завдання'
+  document.getElementById('tEmo').value=''
+  document.getElementById('tName').value=''
+  openMo('moTask')
+}
+function editTaskM(id){
+  editingTask=id; const t=gt(curLang,id)
+  document.getElementById('moTaskT').textContent='Редагувати завдання'
+  document.getElementById('tEmo').value=t.emoji||''
+  document.getElementById('tName').value=t.name
+  openMo('moTask')
+}
+function flagToCode(flag){
+  // Map flag emoji to 2-letter country/lang code
+  const map={
+    '🇺🇦':'UA','🇷🇺':'RU','🇬🇧':'GB','🇺🇸':'US',
+    '🇩🇪':'DE','🇫🇷':'FR','🇪🇸':'ES','🇮🇹':'IT',
+    '🇵🇱':'PL','🇨🇿':'CZ','🇯🇵':'JP','🇨🇳':'CN',
+    '🇰🇷':'KR','🇵🇹':'PT','🇸🇪':'SE','🇹🇷':'TR',
+    '🇸🇦':'SA','🇮🇳':'IN','🇳🇱':'NL','🇧🇷':'BR',
+  }
+  return map[flag]||flag
+}
+function getDirLabels(flag){
+  const code=flagToCode(flag)
+  // Special case: Ukrainian — source is RU, not UA
+  if(code==='UA') return {lA:'RU → UA', lB:'UA → RU'}
+  return {lA:`UA → ${code}`, lB:`${code} → UA`}
+}
+function saveTask(){
+  const emoji=document.getElementById('tEmo').value.trim()||'📝'
+  const name=document.getElementById('tName').value.trim()
+  if(!name){toast('Введіть назву','err');return}
+  const lang=gl(curLang); if(!lang.tasks)lang.tasks=[]
+  if(editingTask){const t=gt(curLang,editingTask);t.emoji=emoji;t.name=name}
+  else {
+    const lang2=gl(curLang)
+    const {lA,lB}=getDirLabels(lang2.flag)
+    lang.tasks.push({id:uid(),emoji,name,pA:'',pB:'',lA,lB})
+  }
+  save(); closeMo('moTask'); renderTasks()
+  toast(editingTask?'Збережено':'Завдання створено ✅','ok')
+}
+function delTask(id){
+  cfm(`Видалити завдання "${gt(curLang,id).name}"?`,()=>{
+    const l=gl(curLang); l.tasks=l.tasks.filter(t=>t.id!==id)
+    save(); renderTasks(); toast('Видалено','ok')
+  })
+}
+function openTask(id){
+  curTask=id; curDir='A'
+  const task=gt(curLang,id)
+  const hasContent=(task.pA||'').trim()!=''||(task.pB||'').trim()!=''
+  curMode=hasContent?'practice':'edit'
+  const lang=gl(curLang)
+  document.getElementById('eFlag').textContent=lang.flag
+  showPage('pgEditor')
+  loadEditor()
+  if(curMode==='practice') buildPractice()
+}
+
+// ──────────────────────────────────────────────────────
+// EDITOR
+// ──────────────────────────────────────────────────────
+function loadEditor(){
+  const task=gt(curLang,curTask); if(!task)return
+  document.getElementById('eTitle').value=task.name
+  // dir buttons
+  document.getElementById('dA').textContent=task.lA||'RU → UA'
+  document.getElementById('dB').textContent=task.lB||'UA → RU'
+  document.getElementById('dA').classList.toggle('active',curDir==='A')
+  document.getElementById('dB').classList.toggle('active',curDir==='B')
+  document.getElementById('pDirL').textContent=curDir==='A'?(task.lA||'RU → UA'):(task.lB||'UA → RU')
+  // load html into contenteditable
+  const html=curDir==='A'?(task.pA||''):(task.pB||'')
+  document.getElementById('ec').innerHTML=html
+  // apply current mode UI without changing curMode
+  setModeUI(curMode)
+}
+
+function switchDir(dir){
+  savePanel()
+  curDir=dir
+  // update dir buttons and label, reload content — preserve curMode
+  const task=gt(curLang,curTask); if(!task)return
+  document.getElementById('dA').classList.toggle('active',dir==='A')
+  document.getElementById('dB').classList.toggle('active',dir==='B')
+  document.getElementById('pDirL').textContent=dir==='A'?(task.lA||'RU → UA'):(task.lB||'UA → RU')
+  const html=dir==='A'?(task.pA||''):(task.pB||'')
+  document.getElementById('ec').innerHTML=html
+  if(curMode==='practice') buildPractice()
+}
+
+function setMode(m){
+  savePanel()
+  curMode=m
+  setModeUI(m)
+  if(m==='practice') buildPractice()
+  else{
+    // restore html in ec
+    const task=gt(curLang,curTask)
+    if(task) document.getElementById('ec').innerHTML=curDir==='A'?(task.pA||''):(task.pB||'')
+  }
+}
+function setModeUI(m){
+  document.getElementById('btnEdit').classList.toggle('active',m==='edit')
+  document.getElementById('btnPrac').classList.toggle('active',m==='practice')
+  document.getElementById('editSection').style.display=m==='edit'?'':'none'
+  document.getElementById('pracSection').style.display=m==='practice'?'':'none'
+}
+
+function savePanel(){
+  if(!curTask)return
+  const task=gt(curLang,curTask)
+  task.name=document.getElementById('eTitle').value
+  if(curMode==='edit'){
+    const html=document.getElementById('ec').innerHTML
+    if(curDir==='A') task.pA=html; else task.pB=html
+  }
+  save()
+}
+
+document.getElementById('ec').addEventListener('input',savePanel)
+document.getElementById('eTitle').addEventListener('input',savePanel)
+
+function fmt(cmd){
+  document.getElementById('ec').focus()
+  document.execCommand(cmd,false,null)
+  savePanel()
+}
+
+// ──────────────────────────────────────────────────────
+// PRACTICE — core logic
+//
+// The trick: both panels use BOLD as the only trigger.
+// We extract <b>/<strong> nodes from panel A (pA) and panel B (pB).
+// When practising direction A→ (showing pA), the expected answer
+// for trigger #i in pA is trigger #i from pB.
+// When practising direction B→ (showing pB), the expected answer
+// for trigger #i in pB is trigger #i from pA.
+// ──────────────────────────────────────────────────────
+
+/**
+ * Extract bold trigger words (in order) from an HTML string.
+ * Returns array of strings (textContent of each <b> or <strong> or
+ * element with inline fontWeight bold/700).
+ */
+function extractBold(html){
+  const d=document.createElement('div'); d.innerHTML=html
+  const res=[]
+  function walk(n){
+    if(n.nodeType===Node.ELEMENT_NODE){
+      const tag=n.tagName
+      const fw=n.style&&n.style.fontWeight
+      if(tag==='B'||tag==='STRONG'||(fw&&(fw==='bold'||fw==='700'))){
+        res.push(n.textContent); return
+      }
+      for(const c of n.childNodes) walk(c)
+    }
+  }
+  walk(d); return res
+}
+
+/**
+ * Build a DocumentFragment from html where every <b>/<strong> node
+ * is replaced with a .tw span (trigger word). Each .tw gets:
+ *   data-idx = its sequential index
+ *   data-orig = original displayed text
+ * Returns {frag, count}
+ */
+function buildPracFrag(html, onClickFn){
+  const d=document.createElement('div'); d.innerHTML=html
+  let idx=0
+  function walk(n){
+    if(n.nodeType===Node.ELEMENT_NODE){
+      const tag=n.tagName
+      const fw=n.style&&n.style.fontWeight
+      if(tag==='B'||tag==='STRONG'||(fw&&(fw==='bold'||fw==='700'))){
+        const tw=document.createElement('span')
+        tw.className='tw'
+        tw.dataset.idx=idx
+        tw.dataset.orig=n.textContent
+        tw.textContent=n.textContent
+        tw.addEventListener('mousedown',function(e){e.preventDefault()}) // prevent focus steal
+        tw.addEventListener('click',function(e){e.stopPropagation();onClickFn(parseInt(this.dataset.idx),this)})
+        n.parentNode.replaceChild(tw,n)
+        idx++; return
+      }
+      for(const c of Array.from(n.childNodes)) walk(c)
+    }
+  }
+  walk(d)
+  return {frag:d, count:idx}
+}
+
+function buildPractice(){
+  // close any open input first
+  closeOpenInput(true)
+  openTwIdx=-1
+
+  const task=gt(curLang,curTask); if(!task)return
+  const isA=curDir==='A'
+  const curHtml=isA?(task.pA||''):(task.pB||'')
+  const oppHtml=isA?(task.pB||''):(task.pA||'')
+
+  // Extract expected answers from OPPOSITE panel
+  const oppWords=extractBold(oppHtml)
+
+  // Build practice fragment for CURRENT panel
+  const {frag,count}=buildPracFrag(curHtml,(idx,twEl)=>handleTwClick(idx,twEl))
+
+  // Build pWords array
+  pWords=[]
+  const allTw=frag.querySelectorAll('.tw')
+  for(let i=0;i<count;i++){
+    pWords.push({
+      origText: allTw[i]?allTw[i].dataset.orig:'',
+      expected: oppWords[i]||'',
+      userAnswer:'',
+      status:'none'
+    })
+  }
+
+  const pa=document.getElementById('pa')
+  pa.innerHTML=''; pa.appendChild(frag)
+
+  // info
+  const info=document.getElementById('pinfo')
+  if(count===0){
+    info.innerHTML='Немає жирних слів у цій панелі. Виділіть слова жирним у режимі редагування.'
+  } else if(count!==oppWords.length){
+    const _curW=extractBold(isA?(task.pA||''):(task.pB||''))
+    window._trigDebug={cur:_curW, opp:oppWords}
+    info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Переглянути тригери</button>`
+  } else {
+    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь.`
+  }
+}
+
+function showTriggerTable(){
+  const {cur,opp}=window._trigDebug||{cur:[],opp:[]}
+  const task=gt(curLang,curTask)
+  const isA=curDir==='A'
+  const curLabel=document.getElementById('pDirL').textContent
+  const oppLabel=isA?(task.lB||'UA → RU'):(task.lA||'RU → UA')
+  const max=Math.max(cur.length,opp.length)
+  let rows=''
+  for(let i=0;i<max;i++){
+    const c=cur[i]!=null?esc(cur[i]):null
+    const o=opp[i]!=null?esc(opp[i]):null
+    const miss=!cur[i]||!opp[i]
+    rows+=`<tr style="${miss?'background:var(--err-bg);':''}">
+      <td style="padding:5px 10px;color:var(--text3);font-size:12px;text-align:right;border-bottom:.5px solid var(--border)">${i+1}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${c||'<span style="color:var(--err)">—</span>'}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${o||'<span style="color:var(--err)">—</span>'}</td>
+    </tr>`
+  }
+  document.getElementById('trigTHead').innerHTML=`<tr>
+    <th style="padding:6px 10px;text-align:right;color:var(--text3);font-weight:500">#</th>
+    <th style="padding:6px 10px;color:var(--accent);font-weight:600">${esc(curLabel)}</th>
+    <th style="padding:6px 10px;color:var(--accent);font-weight:600">${esc(oppLabel)}</th>
+  </tr>`
+  document.getElementById('trigTBody').innerHTML=rows
+  openMo('moTrig')
+}
+
+// ── tw click handler ──────────────────────────────────
+function handleTwClick(idx, twEl){
+  if(pWords[idx].status!=='none') return // already checked
+
+  if(openTwIdx===idx) return // already open, do nothing
+
+  // close previously open input (save its value)
+  if(openTwIdx>=0) closeOpenInput(true)
+
+  openInput(idx, twEl)
+}
+
+function openInput(idx, twEl){
+  openTwIdx=idx
+  twEl.classList.add('tw-open')
+  const saved=pWords[idx].userAnswer
+
+  // Replace text content with an input
+  twEl.innerHTML=''
+  const inp=document.createElement('input')
+  inp.type='text'
+  inp.className='tw-input'
+  inp.value=saved
+  inp.placeholder='…'
+  // auto-size
+  inp.style.width=Math.max(50, (saved.length||pWords[idx].origText.length)*11+20)+'px'
+  inp.addEventListener('input',function(){
+    this.style.width=Math.max(50,this.value.length*11+20)+'px'
+  })
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();closeOpenInput(true)}
+    if(e.key==='Escape'){e.preventDefault();closeOpenInput(false)}
+  })
+  inp.addEventListener('mousedown',function(e){e.stopPropagation()})
+  inp.addEventListener('click',function(e){e.stopPropagation()})
+  // DO NOT use blur to close — it fires on any focus change including
+  // clicking another .tw. We handle close via document click instead.
+  twEl.appendChild(inp)
+  inp.focus(); inp.select()
+}
+
+/**
+ * Close the currently open input.
+ * @param {boolean} commit — true: save typed value; false: restore orig
+ */
+function closeOpenInput(commit){
+  if(openTwIdx<0) return
+  const idx=openTwIdx
+  const twEl=document.querySelector(`.tw[data-idx="${idx}"]`)
+  openTwIdx=-1
+  if(!twEl) return
+
+  const inp=twEl.querySelector('input')
+  if(inp && commit) pWords[idx].userAnswer=inp.value
+
+  twEl.classList.remove('tw-open')
+  twEl.innerHTML=''
+  // Show: if user typed something, show it; otherwise show original
+  const display=commit&&pWords[idx].userAnswer ? pWords[idx].userAnswer : pWords[idx].origText
+  twEl.textContent=display
+
+  // re-add click listener (innerHTML wipe removed it)
+  twEl.addEventListener('mousedown',function(e){e.preventDefault()})
+  twEl.addEventListener('click',function(e){
+    e.stopPropagation()
+    handleTwClick(parseInt(this.dataset.idx),this)
+  })
+}
+
+// Close open input when clicking outside
+document.addEventListener('click', function(e){
+  if(openTwIdx<0) return
+  const twEl=document.querySelector(`.tw[data-idx="${openTwIdx}"]`)
+  if(twEl&&twEl.contains(e.target)) return // click inside — ignore
+  closeOpenInput(true) // click outside — commit & close
+})
+
+// ── check / reset ─────────────────────────────────────
+function stripAccents(s){
+  // Remove combining diacritical marks (including Ukrainian stress accent U+0301)
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+}
+function checkAll(){
+  closeOpenInput(true)
+  let ok=0,err=0,empty=0
+  const allTw=document.querySelectorAll('#pa .tw')
+  allTw.forEach(twEl=>{
+    const idx=parseInt(twEl.dataset.idx)
+    const w=pWords[idx]
+    if(!w||w.status!=='none') return
+    const user=(w.userAnswer||'').trim()
+    const exp=(w.expected||'').trim()
+    if(!user){empty++;return}
+    twEl.classList.remove('tw-open')
+    twEl.innerHTML=''
+    if(stripAccents(user)===stripAccents(exp)){
+      twEl.classList.add('tw-ok')
+      twEl.textContent=w.expected
+      w.status='ok'; ok++
+    } else {
+      twEl.classList.add('tw-err')
+      const usp=document.createElement('span'); usp.textContent=user; twEl.appendChild(usp)
+      const h=document.createElement('span'); h.className='tw-hint'; h.textContent=exp; twEl.appendChild(h)
+      w.status='err'; err++
+    }
+  })
+  if(ok+err===0&&empty>0){toast(`Заповніть відповіді (${empty} порожніх)`,'err');return}
+  toast(`✅ ${ok} правильно · ❌ ${err} неправильно${empty?` · ${empty} порожніх`:''}`,err===0&&empty===0?'ok':'err')
+}
+
+function resetPrac(){
+  openTwIdx=-1
+  buildPractice()
+}
+
+// ──────────────────────────────────────────────────────
+// MODALS
+// ──────────────────────────────────────────────────────
+function openMo(id){document.getElementById(id).classList.add('open')}
+function closeMo(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}))
+let _cfm=null
+function cfm(text,cb){document.getElementById('cfmTxt').textContent=text;_cfm=cb;openMo('moCfm')}
+document.getElementById('cfmBtn').onclick=()=>{closeMo('moCfm');if(_cfm){_cfm();_cfm=null}}
+
+// ──────────────────────────────────────────────────────
+// TOAST
+// ──────────────────────────────────────────────────────
+function toast(msg,type=''){
+  const t=document.createElement('div'); t.className='toast '+(type||'')
+  t.textContent=msg; document.getElementById('tc').appendChild(t)
+  setTimeout(()=>t.remove(),3200)
+}
+
+// ──────────────────────────────────────────────────────
+// GEMINI INTEGRATION
+// ──────────────────────────────────────────────────────
+function toggleGemPanel(){
+  const body=document.getElementById('gemBody')
+  const arrow=document.getElementById('gemArrow')
+  const open=body.classList.toggle('open')
+  arrow.classList.toggle('open',open)
+}
+
+async function gemGenerate(){
+  const words=document.getElementById('gemWords').value.trim()
+  if(!words){toast('Введіть слова для генерації','err');return}
+  const btn=document.getElementById('gemGenBtn')
+  const result=document.getElementById('gemResult')
+  const footer=document.getElementById('gemFooter')
+
+  btn.disabled=true; btn.textContent='⏳ Генерую…'
+  result.style.display='block'
+  result.className='gem-result loading'
+  result.textContent='Зв\'язуюсь з Gemini…'
+  footer.style.display='none'
+
+  try{
+    const resp=await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({words})
+    })
+    const data=await resp.json()
+    if(!resp.ok) throw new Error(data.error||'Помилка сервера')
+    result.className='gem-result'
+    result.textContent=data.result
+    window._gemResult=data.result
+    footer.style.display='flex'
+    toast('Тексти згенеровано ✅','ok')
+  }catch(e){
+    result.className='gem-result error'
+    result.textContent='❌ '+e.message
+  }finally{
+    btn.disabled=false; btn.textContent='✨ Згенерувати'
+  }
+}
+
+function gemTransfer(){
+  const raw=window._gemResult||''
+  if(!raw){toast('Немає згенерованого тексту','err');return}
+
+  // Parse "Текст 1" / "Текст 2" with or without colon
+  const re1=/Текст\s*1\s*:?/i
+  const re2=/Текст\s*2\s*:?/i
+  const match1=re1.exec(raw)
+  const match2=re2.exec(raw)
+  if(!match1||!match2){toast('Не вдалося розпізнати структуру (потрібні "Текст 1" і "Текст 2")','err');return}
+
+  const text1=raw.slice(match1.index+match1[0].length, match2.index).trim()
+  const text2=raw.slice(match2.index+match2[0].length).trim()
+
+  const task=gt(curLang,curTask)
+  if(!task){toast('Завдання не вибрано','err');return}
+
+  // Direction A = first panel label, B = second
+  // text1 → panel A (current dir A), text2 → panel B
+  // But if current dir is B, swap
+  const isA=curDir==='A'
+  const htmlA=textToHtml(isA?text1:text2)
+  const htmlB=textToHtml(isA?text2:text1)
+
+  task.pA=htmlA; task.pB=htmlB; save()
+
+  // Reload editor with new content
+  const ec=document.getElementById('ec')
+  ec.innerHTML=curDir==='A'?htmlA:htmlB
+  savePanel()
+
+  toast('Тексти перенесено в обидві панелі ✅','ok')
+}
+
+function gemClear(){
+  document.getElementById('gemWords').value=''
+  const result=document.getElementById('gemResult')
+  result.style.display='none'; result.textContent=''
+  document.getElementById('gemFooter').style.display='none'
+  window._gemResult=null
+}
+function textToHtml(text){
+  // Escape HTML, convert **bold** markdown to <b>, preserve line breaks
+  return text.split('\n').map(line=>{
+    const escaped=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // Convert **word** to <b>word</b>
+    return escaped.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+  }).join('<br>')
+}
+
+// ──────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────
+async function init(){
+  await gdriveInit()
+  renderLangs(); showPage('pgLangs')
+  renderHdrR()
+}
+init()
+
+// ── PWA Service Worker ─────────────────────────────
+if('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== 'www.claudeusercontent.com'){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js')
+      .then(r=>console.log('SW registered'))
+      .catch(e=>console.warn('SW skip:', e.message))
+  })
+}
+</script>
+
+<!-- AUTH OVERLAY -->
+<div class="auth-overlay" id="authOverlay" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">🌐</div>
+    <div class="auth-title">Мовник</div>
+    <div class="auth-sub" id="authSubText">Увійдіть через Google, щоб зберігати свій прогрес у Google Drive</div>
+    <div id="authError" style="font-size:12px;color:var(--err);margin-top:-12px;margin-bottom:16px;display:none"></div>
+    <button class="auth-btn" onclick="gdriveSignIn()">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Увійти через Google
+    </button>
+  </div>
+</div>
+</body>
+</html>
