@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinguaFlow</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f6f3;--surface:#fff;--surface2:#f0efe9;
+  --border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.18);
+  --text:#1a1a1a;--text2:#555;--text3:#999;
+  --accent:#4a3fc0;--accent-light:#eeecfc;
+  --ok:#2a7a3a;--ok-bg:#e6f5ea;
+  --err:#b02020;--err-bg:#fdeaea;
+  --r:10px;--rl:14px;--tr:.16s ease
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#18181a;--surface:#242428;--surface2:#2e2e34;
+  --border:rgba(255,255,255,.10);--border2:rgba(255,255,255,.18);
+  --text:#f0f0f0;--text2:#aaa;--text3:#666;
+  --accent:#7b72e8;--accent-light:#2a274a;
+  --ok:#4fba6a;--ok-bg:#1a3020;--err:#e06060;--err-bg:#2e1818
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6}
+
+/* ── header ── */
+.hdr{background:var(--surface);border-bottom:.5px solid var(--border);padding:0 20px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:700;color:var(--accent);flex-shrink:0}
+.bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap}
+.bc-a{cursor:pointer;color:var(--accent)}.bc-a:hover{text-decoration:underline}
+.bc-s{color:var(--text3)}.bc-c{font-weight:500}
+.hdr-r{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--tr),transform var(--tr);white-space:nowrap}
+.btn:hover{background:var(--surface2)}.btn:active{transform:scale(.98)}
+.btn-p{background:var(--accent);color:#fff;border-color:transparent}.btn-p:hover{opacity:.9;background:var(--accent)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-d{color:var(--err);border-color:var(--err)}.btn-d:hover{background:var(--err-bg)}
+.btn-ico{padding:6px;border-radius:8px;min-width:30px;justify-content:center}
+
+/* ── layout ── */
+.main{padding:24px 20px;max-width:820px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.ptitle{font-size:21px;font-weight:600;margin-bottom:6px}
+.psub{color:var(--text2);font-size:14px;margin-bottom:22px}
+
+/* ── lang grid ── */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.lcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:18px 16px;cursor:pointer;transition:border-color var(--tr),box-shadow var(--tr),transform var(--tr);position:relative}
+.lcard:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(74,63,192,.12);transform:translateY(-2px)}
+.lflag{font-size:34px;line-height:1;margin-bottom:8px}
+.lname{font-size:15px;font-weight:600;margin-bottom:1px}.lnative{font-size:11px;color:var(--text3)}
+.lact{position:absolute;top:9px;right:9px;display:none;gap:4px}.lcard:hover .lact{display:flex}
+.ladd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr);min-height:106px}
+.ladd:hover{border-color:var(--accent);color:var(--accent)}.ladd .plus{font-size:26px;font-weight:300}
+
+/* ── tasks ── */
+.th{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+.thfl{font-size:26px}.tlist{display:flex;flex-direction:column;gap:9px}
+.titem{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color var(--tr),transform var(--tr)}
+.titem:hover{border-color:var(--accent);transform:translateX(3px)}
+.temi{font-size:20px;width:34px;text-align:center;flex-shrink:0}
+.tinf{flex:1;min-width:0}.tname{font-size:14px;font-weight:500}.tmeta{font-size:11px;color:var(--text3);margin-top:1px}
+.tact{display:none;gap:4px}.titem:hover .tact{display:flex}
+.tadd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr)}
+.tadd:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── editor page ── */
+.eph{margin-bottom:14px;display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.etitle{font-size:18px;font-weight:600;border:none;background:transparent;color:var(--text);outline:none;flex:1;min-width:120px}
+.etitle::placeholder{color:var(--text3)}
+.mode-toggle{display:flex;gap:4px}
+.mbtn{padding:6px 12px;border-radius:8px;border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--tr)}
+.mbtn.active{background:var(--accent);color:#fff;border-color:transparent}
+
+/* direction bar */
+.dbar{display:flex;align-items:center;gap:9px;background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:9px 14px;margin-bottom:14px;flex-wrap:wrap}
+.dbtn{padding:6px 15px;border-radius:8px;border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:all var(--tr)}
+.dbtn.active{background:var(--accent);color:#fff;border-color:transparent}
+.dsep{color:var(--text3);font-size:16px}
+
+/* panel */
+.panel{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.ph{padding:9px 14px;border-bottom:.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.pdirl{font-size:13px;font-weight:700;color:var(--accent)}
+
+/* toolbar */
+.toolbar{display:flex;gap:4px;padding:7px 12px;border-bottom:.5px solid var(--border)}
+.tb{padding:4px 8px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--text2);transition:background var(--tr),color var(--tr);line-height:1;min-width:28px;text-align:center}
+.tb:hover{background:var(--accent-light);color:var(--accent)}
+.tb b{font-weight:700}.tb i{font-style:italic}.tb u{text-decoration:underline}
+
+/* editable area (edit mode) */
+.econtent{padding:16px;min-height:200px;outline:none;font-size:15px;line-height:1.85}
+
+/* ── PRACTICE AREA ── */
+/* The practice area is a static div (NOT contenteditable).
+   We render it manually as HTML with .tw spans for triggers. */
+.parea{padding:16px;min-height:200px;font-size:15px;line-height:1.85;user-select:none;cursor:default}
+
+/* trigger word — clickable underlined span */
+.tw{
+  border-bottom:2px solid var(--accent);
+  cursor:pointer;
+  border-radius:2px;
+  transition:background var(--tr);
+  position:relative;
+}
+.tw:hover{background:var(--accent-light)}
+
+/* state: open input */
+.tw.tw-open{background:var(--accent-light);border-radius:4px}
+
+/* inline input inside .tw */
+.tw-input{
+  display:inline-block;
+  border:none;outline:none;
+  background:transparent;
+  font:inherit;color:var(--text);
+  min-width:40px;width:auto;
+  padding:0;margin:0;
+  vertical-align:baseline;
+}
+
+/* state: answered correct */
+.tw.tw-ok{border-bottom-color:var(--ok);background:var(--ok-bg);border-radius:4px;cursor:default;color:var(--ok)}
+
+/* state: answered wrong */
+.tw.tw-err{border-bottom-color:var(--err);background:var(--err-bg);border-radius:4px;cursor:default;color:var(--err)}
+
+/* correct answer hint shown after wrong */
+.tw-hint{font-size:11px;color:var(--ok);margin-left:5px;font-weight:500;border-left:1.5px solid var(--ok);padding-left:5px}
+
+.pctrl{display:flex;gap:8px;padding:11px 14px;border-top:.5px solid var(--border)}
+.pinfo{font-size:12px;color:var(--text3);padding:7px 14px;background:var(--surface2);border-top:.5px solid var(--border)}
+
+/* ── modals ── */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;padding:14px}
+.mo.open{display:flex}
+.md{background:var(--surface);border-radius:var(--rl);border:.5px solid var(--border);padding:22px;width:100%;max-width:450px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.mdtitle{font-size:17px;font-weight:600;margin-bottom:3px}
+.mdsub{font-size:13px;color:var(--text2);margin-bottom:18px}
+.mdact{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.fg{margin-bottom:13px}
+.fl{font-size:13px;font-weight:500;color:var(--text2);margin-bottom:5px;display:block}
+.fi{width:100%;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:border-color var(--tr)}
+.fi:focus{border-color:var(--accent)}.fi::placeholder{color:var(--text3)}
+.lpgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-height:270px;overflow-y:auto}
+.lpi{padding:9px 7px;border:.5px solid var(--border);border-radius:var(--r);text-align:center;cursor:pointer;transition:border-color var(--tr),background var(--tr)}
+.lpi:hover,.lpi.sel{border-color:var(--accent);background:var(--accent-light)}
+.lpif{font-size:22px;display:block}.lpin{font-size:11px;margin-top:2px;color:var(--text2)}
+.sdiv{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text3);font-size:12px}
+.sdiv::before,.sdiv::after{content:'';flex:1;height:.5px;background:var(--border)}
+
+/* toast */
+.tc{position:fixed;bottom:22px;right:22px;z-index:300;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r);padding:9px 15px;font-size:13px;box-shadow:0 2px 12px rgba(0,0,0,.15);pointer-events:auto;animation:tin .2s ease;max-width:290px}
+@keyframes tin{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--err)}
+
+/* ── gemini panel ── */
+.gem-panel{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);margin-top:16px;overflow:hidden}
+.gem-head{padding:10px 14px;background:var(--surface2);border-bottom:.5px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.gem-head-title{font-size:13px;font-weight:600;color:var(--text2);flex:1}
+.gem-head-arrow{font-size:12px;color:var(--text3);transition:transform var(--tr)}
+.gem-head-arrow.open{transform:rotate(180deg)}
+.gem-body{display:none;flex-direction:column;gap:0}
+.gem-body.open{display:flex}
+.gem-input-row{padding:12px 14px;display:flex;gap:8px;align-items:flex-end;border-bottom:.5px solid var(--border)}
+.gem-textarea{flex:1;resize:vertical;min-height:72px;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color var(--tr);line-height:1.5}
+.gem-textarea:focus{border-color:var(--accent)}
+.gem-textarea::placeholder{color:var(--text3)}
+.gem-result{padding:14px;font-size:14px;line-height:1.75;color:var(--text);white-space:pre-wrap;min-height:60px;max-height:420px;overflow-y:auto}
+.gem-result.loading{color:var(--text3);font-style:italic}
+.gem-result.error{color:var(--err)}
+.gem-footer{padding:10px 14px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo">🌐 LinguaFlow</div>
+  <nav class="bc" id="bc"></nav>
+  <div class="hdr-r" id="hdrR"></div>
+</header>
+
+<main class="main">
+
+  <!-- LANGS -->
+  <div class="page active" id="pgLangs">
+    <div class="ptitle">Мої мови</div>
+    <div class="psub">Оберіть мову для вивчення або додайте нову</div>
+    <div class="lgrid" id="langGrid"></div>
+  </div>
+
+  <!-- TASKS -->
+  <div class="page" id="pgTasks">
+    <div class="th">
+      <div class="thfl" id="tFlag"></div>
+      <div>
+        <div class="ptitle" id="tTitle"></div>
+        <div class="psub" style="margin:0">Список завдань</div>
+      </div>
+    </div>
+    <div class="tlist" id="taskList"></div>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="page" id="pgEditor">
+    <div class="eph">
+      <div class="thfl" id="eFlag"></div>
+      <input class="etitle" id="eTitle" placeholder="Назва завдання…">
+      <div class="mode-toggle">
+        <button class="mbtn active" id="btnEdit" onclick="setMode('edit')">✏️ Редагування</button>
+        <button class="mbtn" id="btnPrac" onclick="setMode('practice')">🎯 Практика</button>
+      </div>
+    </div>
+
+    <div class="dbar">
+      <button class="dbtn active" id="dA" onclick="switchDir('A')">RU → UA</button>
+      <span class="dsep">⇄</span>
+      <button class="dbtn" id="dB" onclick="switchDir('B')">UA → RU</button>
+    </div>
+
+    <div class="panel">
+      <div class="ph">
+        <span class="pdirl" id="pDirL">RU → UA</span>
+      </div>
+
+      <!-- EDIT toolbar + contenteditable -->
+      <div id="editSection">
+        <div class="toolbar">
+          <button class="tb" title="Жирний" onmousedown="e=>e.preventDefault()" onclick="fmt('bold')"><b>B</b></button>
+          <button class="tb" title="Курсив"  onmousedown="e=>e.preventDefault()" onclick="fmt('italic')"><i>I</i></button>
+          <button class="tb" title="Підкреслений" onmousedown="e=>e.preventDefault()" onclick="fmt('underline')"><u>U</u></button>
+        </div>
+        <div class="econtent" id="ec" contenteditable="true" spellcheck="false"
+             oninput="savePanel()" onkeyup="savePanel()"></div>
+      </div>
+
+      <!-- PRACTICE static div + controls -->
+      <div id="pracSection" style="display:none">
+        <div class="parea" id="pa"></div>
+        <div class="pctrl">
+          <button class="btn btn-p btn-sm" onclick="checkAll()">✅ Перевірити</button>
+          <button class="btn btn-sm" onclick="resetPrac()">🔄 Скидання</button>
+        </div>
+        <div class="pinfo" id="pinfo"></div>
+      </div>
+    </div>
+
+    <!-- GEMINI PANEL -->
+    <div class="gem-panel" id="gemPanel">
+      <div class="gem-head" onclick="toggleGemPanel()">
+        <span style="font-size:16px">✨</span>
+        <span class="gem-head-title">Генерація текстів через Gemini AI</span>
+        <span class="gem-head-arrow" id="gemArrow">▼</span>
+      </div>
+      <div class="gem-body" id="gemBody">
+        <div class="gem-input-row">
+          <textarea class="gem-textarea" id="gemWords" placeholder="Введіть слова або словосполучення через кому або з нового рядка…"></textarea>
+          <button class="btn btn-p btn-sm" id="gemGenBtn" onclick="gemGenerate()">✨ Згенерувати</button>
+        </div>
+        <div class="gem-result" id="gemResult" style="display:none"></div>
+        <div class="gem-footer" id="gemFooter" style="display:none">
+          <button class="btn btn-sm" onclick="gemTransfer()">📋 Перенести тексти в панелі</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="tc" id="tc"></div>
+
+<!-- modal: trigger table -->
+<div class="mo" id="moTrig">
+  <div class="md" style="max-width:560px">
+    <div class="mdtitle">🔍 Таблиця тригерів</div>
+    <div class="mdsub">Рядки з червоним фоном — відсутній тригер з одного боку</div>
+    <div style="overflow-y:auto;max-height:60vh;border:.5px solid var(--border);border-radius:var(--r)">
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead id="trigTHead" style="background:var(--surface2);position:sticky;top:0"></thead>
+        <tbody id="trigTBody"></tbody>
+      </table>
+    </div>
+    <div class="mdact">
+      <button class="btn btn-p" onclick="closeMo('moTrig')">Закрити</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal: lang -->
+<div class="mo" id="moLang">
+  <div class="md">
+    <div class="mdtitle" id="moLangT">Додати мову</div>
+    <div class="mdsub">Оберіть зі списку або введіть вручну</div>
+    <div class="lpgrid" id="lpg"></div>
+    <div class="sdiv">або вручну</div>
+    <div class="fg"><label class="fl">Прапор (emoji)</label><input class="fi" id="lFlag" style="font-size:19px;width:68px" maxlength="4" placeholder="🏳"></div>
+    <div class="fg"><label class="fl">Назва мови</label><input class="fi" id="lName" placeholder="Французька"></div>
+    <div class="fg"><label class="fl">Рідна назва (необов'язково)</label><input class="fi" id="lNative" placeholder="Français"></div>
+    <div class="mdact">
+      <button class="btn" onclick="closeMo('moLang')">Скасувати</button>
+      <button class="btn btn-p" onclick="saveLang()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal: task -->
+<div class="mo" id="moTask">
+  <div class="md">
+    <div class="mdtitle" id="moTaskT">Нове завдання</div>
+    <div class="fg"><label class="fl">Emoji</label><input class="fi" id="tEmo" style="font-size:19px;width:68px" maxlength="4" placeholder="📝"></div>
+    <div class="fg"><label class="fl">Назва</label><input class="fi" id="tName" placeholder="Наприклад: Здоров'я"></div>
+    <div class="mdact">
+      <button class="btn" onclick="closeMo('moTask')">Скасувати</button>
+      <button class="btn btn-p" onclick="saveTask()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal: confirm -->
+<div class="mo" id="moCfm">
+  <div class="md" style="max-width:340px">
+    <div class="mdtitle">Видалити?</div>
+    <div class="mdsub" id="cfmTxt"></div>
+    <div class="mdact">
+      <button class="btn" onclick="closeMo('moCfm')">Скасувати</button>
+      <button class="btn btn-d" id="cfmBtn">Видалити</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────
+// DATA
+// ──────────────────────────────────────────────────────
+const PRESETS=[
+  {flag:'🇺🇦',name:'Українська',native:'Українська'},
+  {flag:'🇷🇺',name:'Російська',native:'Русский'},
+  {flag:'🇬🇧',name:'Англійська',native:'English'},
+  {flag:'🇩🇪',name:'Німецька',native:'Deutsch'},
+  {flag:'🇫🇷',name:'Французька',native:'Français'},
+  {flag:'🇪🇸',name:'Іспанська',native:'Español'},
+  {flag:'🇮🇹',name:'Італійська',native:'Italiano'},
+  {flag:'🇵🇱',name:'Польська',native:'Polski'},
+  {flag:'🇨🇿',name:'Чеська',native:'Čeština'},
+  {flag:'🇯🇵',name:'Японська',native:'日本語'},
+  {flag:'🇨🇳',name:'Китайська',native:'中文'},
+  {flag:'🇰🇷',name:'Корейська',native:'한국어'},
+  {flag:'🇵🇹',name:'Португальська',native:'Português'},
+  {flag:'🇸🇪',name:'Шведська',native:'Svenska'},
+  {flag:'🇹🇷',name:'Турецька',native:'Türkçe'},
+  {flag:'🇸🇦',name:'Арабська',native:'العربية'},
+];
+
+let DB={langs:[]};
+try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
+
+let curLang=null, curTask=null, curDir='A', curMode='edit';
+let editingLang=null, editingTask=null;
+
+// practiceWords: array of {origText, expected, userAnswer, status:'none'|'ok'|'err'}
+// indexed same as .tw elements in the DOM
+let pWords=[];
+let openTwIdx=-1; // which .tw is currently open (has inline input)
+
+function save(){try{localStorage.setItem('lf4',JSON.stringify(DB))}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function gl(id){return DB.langs.find(l=>l.id===id)}
+function gt(lid,tid){return gl(lid)?.tasks?.find(t=>t.id===tid)}
+
+// ──────────────────────────────────────────────────────
+// NAVIGATION
+// ──────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  renderBC(); renderHdrR()
+}
+function renderBC(){
+  let h=''
+  if(curLang){
+    h+=`<span class="bc-a" onclick="goLangs()">Мови</span><span class="bc-s">›</span>`
+    const l=gl(curLang)
+    if(curTask){
+      h+=`<span class="bc-a" onclick="goTasks()">${l.flag} ${esc(l.name)}</span><span class="bc-s">›</span>`
+      h+=`<span class="bc-c">${esc(gt(curLang,curTask)?.name||'')}</span>`
+    }else{
+      h+=`<span class="bc-c">${l.flag} ${esc(l.name)}</span>`
+    }
+  }
+  document.getElementById('bc').innerHTML=h
+}
+function renderHdrR(){
+  const ha=document.getElementById('hdrR')
+  if(curTask) ha.innerHTML=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
+  else if(curLang) ha.innerHTML=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
+  else ha.innerHTML=''
+}
+function goLangs(){curLang=null;curTask=null;showPage('pgLangs');renderLangs()}
+function goTasks(){curTask=null;showPage('pgTasks');renderTasks()}
+
+// ──────────────────────────────────────────────────────
+// LANGS
+// ──────────────────────────────────────────────────────
+function renderLangs(){
+  let h=''
+  DB.langs.forEach(l=>{
+    h+=`<div class="lcard" onclick="openLang('${l.id}')">
+      <div class="lflag">${l.flag}</div>
+      <div class="lname">${esc(l.name)}</div>
+      <div class="lnative">${esc(l.native||'')}</div>
+      <div class="lact" onclick="event.stopPropagation()">
+        <button class="btn btn-ico btn-sm" onclick="editLangM('${l.id}')">✏️</button>
+        <button class="btn btn-ico btn-sm btn-d" onclick="delLang('${l.id}')">🗑️</button>
+      </div>
+    </div>`
+  })
+  h+=`<div class="ladd" onclick="addLangM()"><span class="plus">+</span><span>Додати мову</span></div>`
+  document.getElementById('langGrid').innerHTML=h
+}
+function openLang(id){
+  curLang=id; const l=gl(id)
+  document.getElementById('tFlag').textContent=l.flag
+  document.getElementById('tTitle').textContent=l.name
+  showPage('pgTasks'); renderTasks()
+}
+function addLangM(){
+  editingLang=null
+  document.getElementById('moLangT').textContent='Додати мову'
+  document.getElementById('lFlag').value=''
+  document.getElementById('lName').value=''
+  document.getElementById('lNative').value=''
+  renderLPG(); openMo('moLang')
+}
+function editLangM(id){
+  editingLang=id; const l=gl(id)
+  document.getElementById('moLangT').textContent='Редагувати мову'
+  document.getElementById('lFlag').value=l.flag
+  document.getElementById('lName').value=l.name
+  document.getElementById('lNative').value=l.native||''
+  renderLPG(); openMo('moLang')
+}
+function renderLPG(){
+  document.getElementById('lpg').innerHTML=PRESETS.map(l=>
+    `<div class="lpi" onclick="pickLP(this,'${l.flag}','${esc(l.name)}','${esc(l.native)}')">
+      <span class="lpif">${l.flag}</span>
+      <div class="lpin">${l.name}</div>
+    </div>`).join('')
+}
+function pickLP(el,flag,name,native){
+  document.querySelectorAll('.lpi').forEach(i=>i.classList.remove('sel'))
+  el.classList.add('sel')
+  document.getElementById('lFlag').value=flag
+  document.getElementById('lName').value=name
+  document.getElementById('lNative').value=native
+}
+function saveLang(){
+  const flag=document.getElementById('lFlag').value.trim()||'🏳'
+  const name=document.getElementById('lName').value.trim()
+  const native=document.getElementById('lNative').value.trim()
+  if(!name){toast('Введіть назву мови','err');return}
+  if(editingLang){const l=gl(editingLang);l.flag=flag;l.name=name;l.native=native}
+  else DB.langs.push({id:uid(),flag,name,native,tasks:[]})
+  save(); closeMo('moLang'); renderLangs()
+  toast(editingLang?'Збережено':'Мову додано ✅','ok')
+}
+function delLang(id){
+  cfm(`Видалити "${gl(id).name}"? Усі завдання буде втрачено.`,()=>{
+    DB.langs=DB.langs.filter(l=>l.id!==id); save(); renderLangs(); toast('Видалено','ok')
+  })
+}
+
+// ──────────────────────────────────────────────────────
+// TASKS
+// ──────────────────────────────────────────────────────
+function renderTasks(){
+  const lang=gl(curLang); let h=''
+  ;(lang.tasks||[]).forEach(t=>{
+    h+=`<div class="titem" onclick="openTask('${t.id}')">
+      <div class="temi">${t.emoji||'📝'}</div>
+      <div class="tinf">
+        <div class="tname">${esc(t.name)}</div>
+        <div class="tmeta">${(t.pA||t.pB)?'Є вміст':'Порожнє'}</div>
+      </div>
+      <div class="tact" onclick="event.stopPropagation()">
+        <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
+        <button class="btn btn-ico btn-sm btn-d" onclick="delTask('${t.id}')">🗑️</button>
+      </div>
+    </div>`
+  })
+  h+=`<div class="tadd" onclick="addTaskM()"><span style="font-size:18px">＋</span><span>Нове завдання</span></div>`
+  document.getElementById('taskList').innerHTML=h
+}
+function addTaskM(){
+  editingTask=null
+  document.getElementById('moTaskT').textContent='Нове завдання'
+  document.getElementById('tEmo').value=''
+  document.getElementById('tName').value=''
+  openMo('moTask')
+}
+function editTaskM(id){
+  editingTask=id; const t=gt(curLang,id)
+  document.getElementById('moTaskT').textContent='Редагувати завдання'
+  document.getElementById('tEmo').value=t.emoji||''
+  document.getElementById('tName').value=t.name
+  openMo('moTask')
+}
+function flagToCode(flag){
+  // Map flag emoji to 2-letter country/lang code
+  const map={
+    '🇺🇦':'UA','🇷🇺':'RU','🇬🇧':'GB','🇺🇸':'US',
+    '🇩🇪':'DE','🇫🇷':'FR','🇪🇸':'ES','🇮🇹':'IT',
+    '🇵🇱':'PL','🇨🇿':'CZ','🇯🇵':'JP','🇨🇳':'CN',
+    '🇰🇷':'KR','🇵🇹':'PT','🇸🇪':'SE','🇹🇷':'TR',
+    '🇸🇦':'SA','🇮🇳':'IN','🇳🇱':'NL','🇧🇷':'BR',
+  }
+  return map[flag]||flag
+}
+function getDirLabels(flag){
+  const code=flagToCode(flag)
+  // Special case: Ukrainian — source is RU, not UA
+  if(code==='UA') return {lA:'RU → UA', lB:'UA → RU'}
+  return {lA:`UA → ${code}`, lB:`${code} → UA`}
+}
+function saveTask(){
+  const emoji=document.getElementById('tEmo').value.trim()||'📝'
+  const name=document.getElementById('tName').value.trim()
+  if(!name){toast('Введіть назву','err');return}
+  const lang=gl(curLang); if(!lang.tasks)lang.tasks=[]
+  if(editingTask){const t=gt(curLang,editingTask);t.emoji=emoji;t.name=name}
+  else {
+    const lang2=gl(curLang)
+    const {lA,lB}=getDirLabels(lang2.flag)
+    lang.tasks.push({id:uid(),emoji,name,pA:'',pB:'',lA,lB})
+  }
+  save(); closeMo('moTask'); renderTasks()
+  toast(editingTask?'Збережено':'Завдання створено ✅','ok')
+}
+function delTask(id){
+  cfm(`Видалити завдання "${gt(curLang,id).name}"?`,()=>{
+    const l=gl(curLang); l.tasks=l.tasks.filter(t=>t.id!==id)
+    save(); renderTasks(); toast('Видалено','ok')
+  })
+}
+function openTask(id){
+  curTask=id; curDir='A'
+  const task=gt(curLang,id)
+  const hasContent=(task.pA||'').trim()!=''||(task.pB||'').trim()!=''
+  curMode=hasContent?'practice':'edit'
+  const lang=gl(curLang)
+  document.getElementById('eFlag').textContent=lang.flag
+  showPage('pgEditor')
+  loadEditor()
+  if(curMode==='practice') buildPractice()
+}
+
+// ──────────────────────────────────────────────────────
+// EDITOR
+// ──────────────────────────────────────────────────────
+function loadEditor(){
+  const task=gt(curLang,curTask); if(!task)return
+  document.getElementById('eTitle').value=task.name
+  // dir buttons
+  document.getElementById('dA').textContent=task.lA||'RU → UA'
+  document.getElementById('dB').textContent=task.lB||'UA → RU'
+  document.getElementById('dA').classList.toggle('active',curDir==='A')
+  document.getElementById('dB').classList.toggle('active',curDir==='B')
+  document.getElementById('pDirL').textContent=curDir==='A'?(task.lA||'RU → UA'):(task.lB||'UA → RU')
+  // load html into contenteditable
+  const html=curDir==='A'?(task.pA||''):(task.pB||'')
+  document.getElementById('ec').innerHTML=html
+  // apply current mode UI without changing curMode
+  setModeUI(curMode)
+}
+
+function switchDir(dir){
+  savePanel()
+  curDir=dir
+  // update dir buttons and label, reload content — preserve curMode
+  const task=gt(curLang,curTask); if(!task)return
+  document.getElementById('dA').classList.toggle('active',dir==='A')
+  document.getElementById('dB').classList.toggle('active',dir==='B')
+  document.getElementById('pDirL').textContent=dir==='A'?(task.lA||'RU → UA'):(task.lB||'UA → RU')
+  const html=dir==='A'?(task.pA||''):(task.pB||'')
+  document.getElementById('ec').innerHTML=html
+  if(curMode==='practice') buildPractice()
+}
+
+function setMode(m){
+  savePanel()
+  curMode=m
+  setModeUI(m)
+  if(m==='practice') buildPractice()
+  else{
+    // restore html in ec
+    const task=gt(curLang,curTask)
+    if(task) document.getElementById('ec').innerHTML=curDir==='A'?(task.pA||''):(task.pB||'')
+  }
+}
+function setModeUI(m){
+  document.getElementById('btnEdit').classList.toggle('active',m==='edit')
+  document.getElementById('btnPrac').classList.toggle('active',m==='practice')
+  document.getElementById('editSection').style.display=m==='edit'?'':'none'
+  document.getElementById('pracSection').style.display=m==='practice'?'':'none'
+}
+
+function savePanel(){
+  if(!curTask)return
+  const task=gt(curLang,curTask)
+  task.name=document.getElementById('eTitle').value
+  if(curMode==='edit'){
+    const html=document.getElementById('ec').innerHTML
+    if(curDir==='A') task.pA=html; else task.pB=html
+  }
+  save()
+}
+
+document.getElementById('ec').addEventListener('input',savePanel)
+document.getElementById('eTitle').addEventListener('input',savePanel)
+
+function fmt(cmd){
+  document.getElementById('ec').focus()
+  document.execCommand(cmd,false,null)
+  savePanel()
+}
+
+// ──────────────────────────────────────────────────────
+// PRACTICE — core logic
+//
+// The trick: both panels use BOLD as the only trigger.
+// We extract <b>/<strong> nodes from panel A (pA) and panel B (pB).
+// When practising direction A→ (showing pA), the expected answer
+// for trigger #i in pA is trigger #i from pB.
+// When practising direction B→ (showing pB), the expected answer
+// for trigger #i in pB is trigger #i from pA.
+// ──────────────────────────────────────────────────────
+
+/**
+ * Extract bold trigger words (in order) from an HTML string.
+ * Returns array of strings (textContent of each <b> or <strong> or
+ * element with inline fontWeight bold/700).
+ */
+function extractBold(html){
+  const d=document.createElement('div'); d.innerHTML=html
+  const res=[]
+  function walk(n){
+    if(n.nodeType===Node.ELEMENT_NODE){
+      const tag=n.tagName
+      const fw=n.style&&n.style.fontWeight
+      if(tag==='B'||tag==='STRONG'||(fw&&(fw==='bold'||fw==='700'))){
+        res.push(n.textContent); return
+      }
+      for(const c of n.childNodes) walk(c)
+    }
+  }
+  walk(d); return res
+}
+
+/**
+ * Build a DocumentFragment from html where every <b>/<strong> node
+ * is replaced with a .tw span (trigger word). Each .tw gets:
+ *   data-idx = its sequential index
+ *   data-orig = original displayed text
+ * Returns {frag, count}
+ */
+function buildPracFrag(html, onClickFn){
+  const d=document.createElement('div'); d.innerHTML=html
+  let idx=0
+  function walk(n){
+    if(n.nodeType===Node.ELEMENT_NODE){
+      const tag=n.tagName
+      const fw=n.style&&n.style.fontWeight
+      if(tag==='B'||tag==='STRONG'||(fw&&(fw==='bold'||fw==='700'))){
+        const tw=document.createElement('span')
+        tw.className='tw'
+        tw.dataset.idx=idx
+        tw.dataset.orig=n.textContent
+        tw.textContent=n.textContent
+        tw.addEventListener('mousedown',function(e){e.preventDefault()}) // prevent focus steal
+        tw.addEventListener('click',function(e){e.stopPropagation();onClickFn(parseInt(this.dataset.idx),this)})
+        n.parentNode.replaceChild(tw,n)
+        idx++; return
+      }
+      for(const c of Array.from(n.childNodes)) walk(c)
+    }
+  }
+  walk(d)
+  return {frag:d, count:idx}
+}
+
+function buildPractice(){
+  // close any open input first
+  closeOpenInput(true)
+  openTwIdx=-1
+
+  const task=gt(curLang,curTask); if(!task)return
+  const isA=curDir==='A'
+  const curHtml=isA?(task.pA||''):(task.pB||'')
+  const oppHtml=isA?(task.pB||''):(task.pA||'')
+
+  // Extract expected answers from OPPOSITE panel
+  const oppWords=extractBold(oppHtml)
+
+  // Build practice fragment for CURRENT panel
+  const {frag,count}=buildPracFrag(curHtml,(idx,twEl)=>handleTwClick(idx,twEl))
+
+  // Build pWords array
+  pWords=[]
+  const allTw=frag.querySelectorAll('.tw')
+  for(let i=0;i<count;i++){
+    pWords.push({
+      origText: allTw[i]?allTw[i].dataset.orig:'',
+      expected: oppWords[i]||'',
+      userAnswer:'',
+      status:'none'
+    })
+  }
+
+  const pa=document.getElementById('pa')
+  pa.innerHTML=''; pa.appendChild(frag)
+
+  // info
+  const info=document.getElementById('pinfo')
+  if(count===0){
+    info.innerHTML='Немає жирних слів у цій панелі. Виділіть слова жирним у режимі редагування.'
+  } else if(count!==oppWords.length){
+    const _curW=extractBold(isA?(task.pA||''):(task.pB||''))
+    window._trigDebug={cur:_curW, opp:oppWords}
+    info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Переглянути тригери</button>`
+  } else {
+    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь.`
+  }
+}
+
+function showTriggerTable(){
+  const {cur,opp}=window._trigDebug||{cur:[],opp:[]}
+  const task=gt(curLang,curTask)
+  const isA=curDir==='A'
+  const curLabel=document.getElementById('pDirL').textContent
+  const oppLabel=isA?(task.lB||'UA → RU'):(task.lA||'RU → UA')
+  const max=Math.max(cur.length,opp.length)
+  let rows=''
+  for(let i=0;i<max;i++){
+    const c=cur[i]!=null?esc(cur[i]):null
+    const o=opp[i]!=null?esc(opp[i]):null
+    const miss=!cur[i]||!opp[i]
+    rows+=`<tr style="${miss?'background:var(--err-bg);':''}">
+      <td style="padding:5px 10px;color:var(--text3);font-size:12px;text-align:right;border-bottom:.5px solid var(--border)">${i+1}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${c||'<span style="color:var(--err)">—</span>'}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${o||'<span style="color:var(--err)">—</span>'}</td>
+    </tr>`
+  }
+  document.getElementById('trigTHead').innerHTML=`<tr>
+    <th style="padding:6px 10px;text-align:right;color:var(--text3);font-weight:500">#</th>
+    <th style="padding:6px 10px;color:var(--accent);font-weight:600">${esc(curLabel)}</th>
+    <th style="padding:6px 10px;color:var(--accent);font-weight:600">${esc(oppLabel)}</th>
+  </tr>`
+  document.getElementById('trigTBody').innerHTML=rows
+  openMo('moTrig')
+}
+
+// ── tw click handler ──────────────────────────────────
+function handleTwClick(idx, twEl){
+  if(pWords[idx].status!=='none') return // already checked
+
+  if(openTwIdx===idx) return // already open, do nothing
+
+  // close previously open input (save its value)
+  if(openTwIdx>=0) closeOpenInput(true)
+
+  openInput(idx, twEl)
+}
+
+function openInput(idx, twEl){
+  openTwIdx=idx
+  twEl.classList.add('tw-open')
+  const saved=pWords[idx].userAnswer
+
+  // Replace text content with an input
+  twEl.innerHTML=''
+  const inp=document.createElement('input')
+  inp.type='text'
+  inp.className='tw-input'
+  inp.value=saved
+  inp.placeholder='…'
+  // auto-size
+  inp.style.width=Math.max(50, (saved.length||pWords[idx].origText.length)*11+20)+'px'
+  inp.addEventListener('input',function(){
+    this.style.width=Math.max(50,this.value.length*11+20)+'px'
+  })
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();closeOpenInput(true)}
+    if(e.key==='Escape'){e.preventDefault();closeOpenInput(false)}
+  })
+  inp.addEventListener('mousedown',function(e){e.stopPropagation()})
+  inp.addEventListener('click',function(e){e.stopPropagation()})
+  // DO NOT use blur to close — it fires on any focus change including
+  // clicking another .tw. We handle close via document click instead.
+  twEl.appendChild(inp)
+  inp.focus(); inp.select()
+}
+
+/**
+ * Close the currently open input.
+ * @param {boolean} commit — true: save typed value; false: restore orig
+ */
+function closeOpenInput(commit){
+  if(openTwIdx<0) return
+  const idx=openTwIdx
+  const twEl=document.querySelector(`.tw[data-idx="${idx}"]`)
+  openTwIdx=-1
+  if(!twEl) return
+
+  const inp=twEl.querySelector('input')
+  if(inp && commit) pWords[idx].userAnswer=inp.value
+
+  twEl.classList.remove('tw-open')
+  twEl.innerHTML=''
+  // Show: if user typed something, show it; otherwise show original
+  const display=commit&&pWords[idx].userAnswer ? pWords[idx].userAnswer : pWords[idx].origText
+  twEl.textContent=display
+
+  // re-add click listener (innerHTML wipe removed it)
+  twEl.addEventListener('mousedown',function(e){e.preventDefault()})
+  twEl.addEventListener('click',function(e){
+    e.stopPropagation()
+    handleTwClick(parseInt(this.dataset.idx),this)
+  })
+}
+
+// Close open input when clicking outside
+document.addEventListener('click', function(e){
+  if(openTwIdx<0) return
+  const twEl=document.querySelector(`.tw[data-idx="${openTwIdx}"]`)
+  if(twEl&&twEl.contains(e.target)) return // click inside — ignore
+  closeOpenInput(true) // click outside — commit & close
+})
+
+// ── check / reset ─────────────────────────────────────
+function stripAccents(s){
+  // Remove combining diacritical marks (including Ukrainian stress accent U+0301)
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+}
+function checkAll(){
+  closeOpenInput(true)
+  let ok=0,err=0,empty=0
+  const allTw=document.querySelectorAll('#pa .tw')
+  allTw.forEach(twEl=>{
+    const idx=parseInt(twEl.dataset.idx)
+    const w=pWords[idx]
+    if(!w||w.status!=='none') return
+    const user=(w.userAnswer||'').trim()
+    const exp=(w.expected||'').trim()
+    if(!user){empty++;return}
+    twEl.classList.remove('tw-open')
+    twEl.innerHTML=''
+    if(stripAccents(user)===stripAccents(exp)){
+      twEl.classList.add('tw-ok')
+      twEl.textContent=w.expected
+      w.status='ok'; ok++
+    } else {
+      twEl.classList.add('tw-err')
+      const usp=document.createElement('span'); usp.textContent=user; twEl.appendChild(usp)
+      const h=document.createElement('span'); h.className='tw-hint'; h.textContent=exp; twEl.appendChild(h)
+      w.status='err'; err++
+    }
+  })
+  if(ok+err===0&&empty>0){toast(`Заповніть відповіді (${empty} порожніх)`,'err');return}
+  toast(`✅ ${ok} правильно · ❌ ${err} неправильно${empty?` · ${empty} порожніх`:''}`,err===0&&empty===0?'ok':'err')
+}
+
+function resetPrac(){
+  openTwIdx=-1
+  buildPractice()
+}
+
+// ──────────────────────────────────────────────────────
+// MODALS
+// ──────────────────────────────────────────────────────
+function openMo(id){document.getElementById(id).classList.add('open')}
+function closeMo(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}))
+let _cfm=null
+function cfm(text,cb){document.getElementById('cfmTxt').textContent=text;_cfm=cb;openMo('moCfm')}
+document.getElementById('cfmBtn').onclick=()=>{closeMo('moCfm');if(_cfm){_cfm();_cfm=null}}
+
+// ──────────────────────────────────────────────────────
+// TOAST
+// ──────────────────────────────────────────────────────
+function toast(msg,type=''){
+  const t=document.createElement('div'); t.className='toast '+(type||'')
+  t.textContent=msg; document.getElementById('tc').appendChild(t)
+  setTimeout(()=>t.remove(),3200)
+}
+
+// ──────────────────────────────────────────────────────
+// GEMINI INTEGRATION
+// ──────────────────────────────────────────────────────
+function toggleGemPanel(){
+  const body=document.getElementById('gemBody')
+  const arrow=document.getElementById('gemArrow')
+  const open=body.classList.toggle('open')
+  arrow.classList.toggle('open',open)
+}
+
+async function gemGenerate(){
+  const words=document.getElementById('gemWords').value.trim()
+  if(!words){toast('Введіть слова для генерації','err');return}
+  const btn=document.getElementById('gemGenBtn')
+  const result=document.getElementById('gemResult')
+  const footer=document.getElementById('gemFooter')
+
+  btn.disabled=true; btn.textContent='⏳ Генерую…'
+  result.style.display='block'
+  result.className='gem-result loading'
+  result.textContent='Зв\'язуюсь з Gemini…'
+  footer.style.display='none'
+
+  try{
+    const resp=await fetch('/api/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({words})
+    })
+    const data=await resp.json()
+    if(!resp.ok) throw new Error(data.error||'Помилка сервера')
+    result.className='gem-result'
+    result.textContent=data.result
+    window._gemResult=data.result
+    footer.style.display='flex'
+    toast('Тексти згенеровано ✅','ok')
+  }catch(e){
+    result.className='gem-result error'
+    result.textContent='❌ '+e.message
+  }finally{
+    btn.disabled=false; btn.textContent='✨ Згенерувати'
+  }
+}
+
+function gemTransfer(){
+  const raw=window._gemResult||''
+  if(!raw){toast('Немає згенерованого тексту','err');return}
+
+  // Parse "Текст 1: ... Текст 2: ..."
+  const m1=raw.indexOf('Текст 1:')
+  const m2=raw.indexOf('Текст 2:')
+  if(m1===-1||m2===-1){toast('Не вдалося розпізнати структуру (потрібні "Текст 1:" і "Текст 2:")','err');return}
+
+  const text1=raw.slice(m1+8, m2).trim()
+  const text2=raw.slice(m2+8).trim()
+
+  const task=gt(curLang,curTask)
+  if(!task){toast('Завдання не вибрано','err');return}
+
+  // Direction A = first panel label, B = second
+  // text1 → panel A (current dir A), text2 → panel B
+  // But if current dir is B, swap
+  const isA=curDir==='A'
+  const htmlA=textToHtml(isA?text1:text2)
+  const htmlB=textToHtml(isA?text2:text1)
+
+  task.pA=htmlA; task.pB=htmlB; save()
+
+  // Reload editor with new content
+  const ec=document.getElementById('ec')
+  ec.innerHTML=curDir==='A'?htmlA:htmlB
+  savePanel()
+
+  toast('Тексти перенесено в обидві панелі ✅','ok')
+}
+
+function textToHtml(text){
+  // Convert plain text to safe HTML (preserve line breaks)
+  return text.split('\n').map(line=>
+    line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  ).join('<br>')
+}
+
+// ──────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────
+renderLangs(); showPage('pgLangs')
+</script>
+</body>
+</html>
