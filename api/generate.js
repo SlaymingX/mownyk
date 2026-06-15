@@ -1,1 +1,61 @@
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
+  const { words } = req.body;
+  if (!words || typeof words !== 'string' || !words.trim()) {
+    return res.status(400).json({ error: 'Поле "words" обов\'язкове' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY не задано на сервері' });
+  }
+
+  const prompt = `Згенеруй мені 2 тексту, де будуть зустрічатися кожне слово або вираз із переліку нижче. Тільки пиши суцільними текстами без нумеровань. Просто познач Текст 1, Текст 2. Також не пиши якихось вступних мов, фраз: наприкінці теж: суто тексти. Якщо в переліку слів зустрічаються фрази з дужками - виключай їх. Наприклад: "Ну, пока (прощание) вам з вашим ремонтом!" (вихідне слово: пока (прощание)) — пиши як "Ну, пока вам з вашим ремонтом!"
+
+1 текст. Текст російською на будь-яку тему, але там повинні зустрічатися усі слова, що я скину нижче. А точніше - їхні українські відповідники. Перелік нижче представляє слова парами (спочатку українське, потім російське) Ось приклад: "Мы решили загаси́ти пожар". Тобто замість слова "потушить" береться його пара "загаси́ти". Також ці слова треба в тексі виділити жирним шрифтом - щоб їх знайти швидко.
+
+2 текст. Це абсолютно той же текст речення за реченням - тільки навпаки. Основа тексту відтепер українська (у межах розумного майше дословно перекладена). А ось слова з переліку - відтепер російські (пари українських) Тобто текст із прикладу буде таким: "Ми вирішили потушить пожежу" І знову треба виділити слово жирним.
+
+Далі я сюди теж буду писати вже нові переліки слів — ніяк їх не поєднуй з іншими запитами (тільки з цим промптом) тобто - кожен новий запит — абсолютно самостійні нові 2 тексти на нові слова.
+
+Перелік слів:
+${words.trim()}`;
+
+  try {
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 2048,
+          },
+        }),
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      console.error('Gemini API error:', errText);
+      return res.status(502).json({ error: 'Помилка від Gemini API', details: errText });
+    }
+
+    const data = await geminiRes.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      return res.status(502).json({ error: 'Gemini повернув порожню відповідь' });
+    }
+
+    return res.status(200).json({ result: text });
+  } catch (err) {
+    console.error('Handler error:', err);
+    return res.status(500).json({ error: 'Внутрішня помилка сервера', details: err.message });
+  }
+}
