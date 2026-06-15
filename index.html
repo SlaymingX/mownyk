@@ -176,6 +176,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gem-result.loading{color:var(--text3);font-style:italic}
 .gem-result.error{color:var(--err)}
 .gem-footer{padding:10px 14px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── google auth overlay ── */
+.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:36px 30px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.auth-logo{font-size:40px;margin-bottom:10px}
+.auth-title{font-size:20px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.auth-sub{font-size:13px;color:var(--text2);margin-bottom:22px;line-height:1.6}
+.auth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 16px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface2);color:var(--text);font-size:14px;font-weight:500;cursor:pointer;transition:background var(--tr)}
+.auth-btn:hover{background:var(--accent-light)}
+
+/* ── sync badge ── */
+.sync-badge{font-size:11px;font-weight:500;color:var(--text3);padding:5px 10px;border-radius:8px;background:var(--surface2);border:.5px solid var(--border);white-space:nowrap}
+.sync-badge.syncing{color:var(--accent);border-color:var(--accent)}
+.sync-badge.error{color:var(--err);border-color:var(--err);background:var(--err-bg)}
+
 </style>
 </head>
 <body>
@@ -358,7 +373,6 @@ const PRESETS=[
 ];
 
 let DB={langs:[]};
-try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
 
 let curLang=null, curTask=null, curDir='A', curMode='edit';
 let editingLang=null, editingTask=null;
@@ -368,7 +382,173 @@ let editingLang=null, editingTask=null;
 let pWords=[];
 let openTwIdx=-1; // which .tw is currently open (has inline input)
 
-function save(){try{localStorage.setItem('lf4',JSON.stringify(DB))}catch(e){}}
+// ──────────────────────────────────────────────────────
+// GOOGLE DRIVE SYNC
+// ──────────────────────────────────────────────────────
+const GDRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // ← замінити
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_FILE_NAME = 'linguaflow.json';
+
+let gToken = null;          // current access token
+let gFileId = null;         // Drive file id once found/created
+let gSaveTimer = null;      // debounce timer
+
+// Load Google Identity Services script dynamically
+function loadGIS(){
+  return new Promise(resolve=>{
+    if(window.google?.accounts?.oauth2){resolve();return}
+    const s=document.createElement('script')
+    s.src='https://accounts.google.com/gsi/client'
+    s.onload=resolve; document.head.appendChild(s)
+  })
+}
+
+async function gdriveSignIn(){
+  await loadGIS()
+  google.accounts.oauth2.initTokenClient({
+    client_id: GDRIVE_CLIENT_ID,
+    scope: GDRIVE_SCOPE,
+    callback: async(resp)=>{
+      if(resp.error){setSyncBadge('error','Помилка входу');return}
+      gToken=resp.access_token
+      localStorage.setItem('lf_token', gToken)
+      document.getElementById('authOverlay').style.display='none'
+      setSyncBadge('syncing','Завантаження…')
+      await gdriveLoad()
+      renderLangs(); showPage('pgLangs')
+      setSyncBadge('','✓ Google Drive')
+    }
+  }).requestAccessToken()
+}
+
+function gdriveSignOut(){
+  gToken=null; gFileId=null
+  localStorage.removeItem('lf_token')
+  try{const s=localStorage.getItem('lf4'); DB=s?JSON.parse(s):{langs:[]}}catch(e){DB={langs:[]}}
+  goLangs()
+  document.getElementById('authOverlay').style.display='flex'
+}
+
+function setSyncBadge(cls, text){
+  const b=document.getElementById('syncBadge')
+  if(!b)return
+  b.className='sync-badge '+(cls||'')
+  b.textContent=text
+}
+
+async function gdriveFetch(url, opts={}){
+  const r=await fetch(url,{...opts, headers:{...opts.headers,'Authorization':'Bearer '+gToken}})
+  if(r.status===401){
+    // Token expired — re-auth silently
+    setSyncBadge('error','Сесія закінчилась, увійдіть знову')
+    gdriveSignOut(); return null
+  }
+  return r
+}
+
+async function gdriveLoad(){
+  // Find or create the appdata file
+  const q=encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and spaces='appDataFolder'`)
+  const r=await gdriveFetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`)
+  if(!r)return
+  const data=await r.json()
+  if(data.files&&data.files.length>0){
+    gFileId=data.files[0].id
+    // Download content
+    const r2=await gdriveFetch(`https://www.googleapis.com/drive/v3/files/${gFileId}?alt=media`)
+    if(!r2)return
+    try{
+      const json=await r2.json()
+      if(json&&json.langs) DB=json
+    }catch(e){console.warn('Could not parse Drive file',e)}
+  } else {
+    // Create empty file
+    await gdriveUpload()
+  }
+}
+
+async function gdriveUpload(){
+  const body=JSON.stringify(DB)
+  const boundary='lf_boundary_'+Date.now()
+  const meta=JSON.stringify({name:GDRIVE_FILE_NAME, parents:['appDataFolder']})
+
+  if(!gFileId){
+    // Create new file (multipart)
+    const mp=`--${boundary}
+Content-Type: application/json
+
+${meta}
+--${boundary}
+Content-Type: application/json
+
+${body}
+--${boundary}--`
+    const r=await gdriveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+      method:'POST',
+      headers:{'Content-Type':`multipart/related; boundary=${boundary}`},
+      body:mp
+    })
+    if(!r)return
+    const d=await r.json()
+    gFileId=d.id
+  } else {
+    // Update existing (media only)
+    await gdriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body
+    })
+  }
+}
+
+function save(){
+  // Always keep localStorage as local cache
+  try{localStorage.setItem('lf4',JSON.stringify(DB))}catch(e){}
+  // Debounced Drive upload
+  if(!gToken)return
+  clearTimeout(gSaveTimer)
+  setSyncBadge('syncing','Збереження…')
+  gSaveTimer=setTimeout(async()=>{
+    await gdriveUpload()
+    setSyncBadge('','✓ Google Drive')
+  }, 1200)
+}
+
+async function gdriveInit(){
+  // Try to restore token from localStorage (user already signed in before)
+  const cached=localStorage.getItem('lf_token')
+  // We can't reuse old tokens safely without refresh — show auth screen
+  // unless we silently get a new one
+  await loadGIS()
+  // Try silent token request (prompt: 'none')
+  let resolved=false
+  const timeout=new Promise(r=>setTimeout(()=>{if(!resolved)r(null)},3000))
+  const silent=new Promise(resolve=>{
+    try{
+      google.accounts.oauth2.initTokenClient({
+        client_id: GDRIVE_CLIENT_ID,
+        scope: GDRIVE_SCOPE,
+        prompt:'none',
+        callback: async(resp)=>{
+          resolved=true
+          if(resp.error||!resp.access_token){resolve(null);return}
+          gToken=resp.access_token
+          resolve(gToken)
+        }
+      }).requestAccessToken()
+    }catch(e){resolve(null)}
+  })
+  const token=await Promise.race([silent,timeout])
+  if(token){
+    document.getElementById('authOverlay').style.display='none'
+    setSyncBadge('syncing','Завантаження…')
+    await gdriveLoad()
+    setSyncBadge('','✓ Google Drive')
+  } else {
+    // Show auth screen — but also load from localStorage cache
+    try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
+  }
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function gl(id){return DB.langs.find(l=>l.id===id)}
@@ -398,9 +578,13 @@ function renderBC(){
 }
 function renderHdrR(){
   const ha=document.getElementById('hdrR')
-  if(curTask) ha.innerHTML=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
-  else if(curLang) ha.innerHTML=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
-  else ha.innerHTML=''
+  let back=''
+  if(curTask) back=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
+  else if(curLang) back=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
+  ha.innerHTML=back+`
+    <span class="sync-badge" id="syncBadge">${gToken?'✓ Google Drive':'Локально'}</span>
+    ${gToken?`<button class="btn btn-sm" onclick="gdriveSignOut()" title="Вийти">⏏️</button>`:''}
+  `
 }
 function goLangs(){curLang=null;curTask=null;showPage('pgLangs');renderLangs()}
 function goTasks(){curTask=null;showPage('pgTasks');renderTasks()}
@@ -996,7 +1180,25 @@ function textToHtml(text){
 // ──────────────────────────────────────────────────────
 // INIT
 // ──────────────────────────────────────────────────────
-renderLangs(); showPage('pgLangs')
+async function init(){
+  await gdriveInit()
+  renderLangs(); showPage('pgLangs')
+  renderHdrR()
+}
+init()
 </script>
+
+<!-- AUTH OVERLAY -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-logo">🌐</div>
+    <div class="auth-title">LinguaFlow</div>
+    <div class="auth-sub">Увійдіть через Google, щоб зберігати свій прогрес у Google Drive</div>
+    <button class="auth-btn" onclick="gdriveSignIn()">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Увійти через Google
+    </button>
+  </div>
+</div>
 </body>
 </html>
