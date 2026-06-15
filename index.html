@@ -262,6 +262,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="gem-input-row">
           <textarea class="gem-textarea" id="gemWords" placeholder="Введіть слова або словосполучення через кому або з нового рядка…"></textarea>
           <button class="btn btn-p btn-sm" id="gemGenBtn" onclick="gemGenerate()">✨ Згенерувати</button>
+          <button class="btn btn-sm" onclick="gemClear()">🗑️ Очистити</button>
         </div>
         <div class="gem-result" id="gemResult" style="display:none"></div>
         <div class="gem-footer" id="gemFooter" style="display:none">
@@ -976,11 +977,20 @@ function gemTransfer(){
   toast('Тексти перенесено в обидві панелі ✅','ok')
 }
 
+function gemClear(){
+  document.getElementById('gemWords').value=''
+  const result=document.getElementById('gemResult')
+  result.style.display='none'; result.textContent=''
+  document.getElementById('gemFooter').style.display='none'
+  window._gemResult=null
+}
 function textToHtml(text){
-  // Convert plain text to safe HTML (preserve line breaks)
-  return text.split('\n').map(line=>
-    line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-  ).join('<br>')
+  // Escape HTML, convert **bold** markdown to <b>, preserve line breaks
+  return text.split('\n').map(line=>{
+    const escaped=line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    // Convert **word** to <b>word</b>
+    return escaped.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+  }).join('<br>')
 }
 
 // ──────────────────────────────────────────────────────
