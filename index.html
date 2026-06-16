@@ -171,10 +171,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--err)}
 
 
-/* ── sync badge ── */
-.sync-badge{font-size:11px;padding:3px 9px;border-radius:20px;border:.5px solid var(--border2);color:var(--text3);background:var(--surface2);white-space:nowrap}
-.sync-badge.syncing{color:var(--accent);border-color:var(--accent);background:var(--accent-light)}
-.sync-badge.error{color:var(--err);border-color:var(--err);background:var(--err-bg)}
+/* ── header v2 ── */
+.hdr{background:var(--surface);border-bottom:.5px solid var(--border);padding:0 14px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+.hamburger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:none;background:transparent;cursor:pointer;color:var(--text);font-size:18px;flex-shrink:0;transition:background var(--tr)}
+.hamburger:hover{background:var(--surface2)}
+.hdr-favicon{width:26px;height:26px;border-radius:6px;flex-shrink:0;object-fit:cover}
+.bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap;min-width:0;overflow:hidden}
+@media(max-width:520px){.bc{display:none}}
+
+/* ── sidebar ── */
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:none}
+.sidebar-overlay.open{display:block}
+.sidebar{position:fixed;top:0;left:0;height:100%;width:260px;max-width:82vw;background:var(--surface);border-right:.5px solid var(--border);z-index:401;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .22s ease;box-shadow:2px 0 24px rgba(0,0,0,.2)}
+.sidebar.open{transform:translateX(0)}
+.sidebar-head{display:flex;align-items:center;gap:10px;padding:16px 16px 14px;border-bottom:.5px solid var(--border)}
+.sidebar-head img{width:30px;height:30px;border-radius:7px}
+.sidebar-head-title{font-size:17px;font-weight:700;color:var(--accent)}
+.sidebar-close{margin-left:auto;width:30px;height:30px;border-radius:7px;border:none;background:transparent;color:var(--text3);font-size:16px;cursor:pointer;transition:background var(--tr)}
+.sidebar-close:hover{background:var(--surface2)}
+.sidebar-body{flex:1;overflow-y:auto;padding:10px}
+.sidebar-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:14px;color:var(--text);transition:background var(--tr)}
+.sidebar-item:hover{background:var(--surface2)}
+.sidebar-item.active{background:var(--accent-light);color:var(--accent);font-weight:600}
+.sidebar-item-icon{font-size:17px;width:22px;text-align:center;flex-shrink:0}
+.sidebar-sec{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:14px 12px 6px}
+.sidebar-recent{font-size:12px;color:var(--text3);padding:8px 12px 4px}
+.sidebar-task-item{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2);transition:background var(--tr)}
+.sidebar-task-item:hover{background:var(--surface2);color:var(--text)}
+.sidebar-task-flag{font-size:14px}
+.sidebar-empty{font-size:12px;color:var(--text3);padding:8px 12px}
+
+/* ── google drive dropdown ── */
+.gdrive-wrap{position:relative;flex-shrink:0}
+.gdrive-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r);box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:190px;z-index:150;overflow:hidden;display:none}
+.gdrive-dropdown.open{display:block}
+.gdrive-dd-item{padding:10px 14px;font-size:13px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;transition:background var(--tr)}
+.gdrive-dd-item:hover{background:var(--surface2)}
+.gdrive-dd-item.danger{color:var(--err)}
+.gdrive-dd-sep{height:.5px;background:var(--border);margin:2px 0}
+.gdrive-dd-status{padding:9px 14px;font-size:11px;color:var(--text3)}
+
 
 /* ── auth overlay ── */
 .auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -206,10 +242,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <body>
 
 <header class="hdr">
-  <div class="logo">🌐 Мовник</div>
+  <button class="hamburger" onclick="openSidebar()" title="Меню">☰</button>
+  <img src="/favicon.png" class="hdr-favicon" alt="Мовник" onerror="this.style.display='none'">
   <nav class="bc" id="bc"></nav>
   <div class="hdr-r" id="hdrR"></div>
+  <div class="gdrive-wrap">
+    <button class="btn btn-sm" id="gdriveBtn" onclick="toggleGdriveDropdown()">
+      <span id="gdriveBtnIcon">☁️</span> <span id="gdriveBtnText">Локально</span>
+    </button>
+    <div class="gdrive-dropdown" id="gdriveDropdown">
+      <div class="gdrive-dd-status" id="gdriveDdStatus">Локально (без синхронізації)</div>
+      <div class="gdrive-dd-sep"></div>
+      <div class="gdrive-dd-item" id="gdriveDdSignIn" onclick="gdriveSignIn()">🔑 Увійти через Google</div>
+      <div class="gdrive-dd-item danger" id="gdriveDdSignOut" style="display:none" onclick="gdriveSignOut()">⏏️ Вийти з акаунту</div>
+    </div>
+  </div>
 </header>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <img src="/favicon.png" onerror="this.style.display='none'">
+    <span class="sidebar-head-title">Мовник</span>
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <div class="sidebar-body">
+    <div class="sidebar-item" onclick="sidebarGoHome()">
+      <span class="sidebar-item-icon">🏠</span><span>Додому</span>
+    </div>
+    <div class="sidebar-item" onclick="sidebarGoFolders()">
+      <span class="sidebar-item-icon">📁</span><span>Мої папки</span>
+    </div>
+    <div class="sidebar-sec">Останні завдання</div>
+    <div id="sidebarRecent"></div>
+  </div>
+</aside>
 
 <main class="main">
 
@@ -466,10 +533,23 @@ function scheduleTokenRefresh(){
 }
 
 function setSyncBadge(cls, text){
-  const b=document.getElementById('syncBadge')
-  if(!b)return
-  b.className='sync-badge '+(cls||'')
-  b.textContent=text
+  const icon=document.getElementById('gdriveBtnIcon')
+  const txt=document.getElementById('gdriveBtnText')
+  const status=document.getElementById('gdriveDdStatus')
+  if(!icon)return
+  if(cls==='error'){
+    icon.textContent='⚠️'
+    txt.textContent='Помилка'
+    if(status) status.textContent=text
+  } else if(cls==='syncing'){
+    icon.textContent='⏳'
+    txt.textContent='Синхронізація…'
+    if(status) status.textContent=text
+  } else {
+    // Reflect actual auth state
+    renderGdriveButton()
+    if(status && text) status.textContent=text
+  }
 }
 
 async function gdriveFetch(url, opts={}){
@@ -656,10 +736,86 @@ function renderHdrR(){
   let back=''
   if(curTask) back=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
   else if(curLang) back=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
-  ha.innerHTML=back+`
-    <span class="sync-badge" id="syncBadge">${gToken?'✓ Google Drive':'Локально'}</span>
-    ${gToken?`<button class="btn btn-sm" onclick="gdriveSignOut()" title="Вийти">⏏️</button>`:''}
-  `
+  ha.innerHTML=back
+  renderGdriveButton()
+}
+function renderGdriveButton(){
+  const icon=document.getElementById('gdriveBtnIcon')
+  const text=document.getElementById('gdriveBtnText')
+  const status=document.getElementById('gdriveDdStatus')
+  const signInItem=document.getElementById('gdriveDdSignIn')
+  const signOutItem=document.getElementById('gdriveDdSignOut')
+  if(!icon)return
+  if(gToken){
+    icon.textContent='✓'
+    text.textContent='Google Drive'
+    status.textContent='Синхронізовано з Google Drive'
+    signInItem.style.display='none'
+    signOutItem.style.display='flex'
+  } else {
+    icon.textContent='☁️'
+    text.textContent='Локально'
+    status.textContent='Локально (без синхронізації)'
+    signInItem.style.display='flex'
+    signOutItem.style.display='none'
+  }
+}
+function toggleGdriveDropdown(){
+  document.getElementById('gdriveDropdown').classList.toggle('open')
+}
+document.addEventListener('click', e=>{
+  const wrap=document.querySelector('.gdrive-wrap')
+  const dd=document.getElementById('gdriveDropdown')
+  if(dd && dd.classList.contains('open') && wrap && !wrap.contains(e.target)){
+    dd.classList.remove('open')
+  }
+})
+
+// ── sidebar ──────────────────────────────────────────
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open')
+  document.getElementById('sidebarOverlay').classList.add('open')
+  renderSidebarRecent()
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open')
+  document.getElementById('sidebarOverlay').classList.remove('open')
+}
+function sidebarGoHome(){
+  closeSidebar(); goLangs()
+}
+function sidebarGoFolders(){
+  closeSidebar(); goLangs()
+}
+function sidebarOpenTask(langId, taskId){
+  closeSidebar()
+  curLang=langId
+  openTask(taskId)
+}
+function getRecentTasks(){
+  // Flatten all tasks across all langs, sorted by lastOpened (fallback: creation order reversed)
+  const all=[]
+  DB.langs.forEach(l=>{
+    (l.tasks||[]).forEach(t=>{
+      all.push({lang:l, task:t})
+    })
+  })
+  all.sort((a,b)=>(b.task.lastOpened||0)-(a.task.lastOpened||0))
+  return all.filter(x=>x.task.lastOpened).slice(0,8)
+}
+function renderSidebarRecent(){
+  const el=document.getElementById('sidebarRecent')
+  const recent=getRecentTasks()
+  if(recent.length===0){
+    el.innerHTML='<div class="sidebar-empty">Тут з’являться останні відкриті завдання</div>'
+    return
+  }
+  el.innerHTML=recent.map(({lang,task})=>
+    `<div class="sidebar-task-item" onclick="sidebarOpenTask('${lang.id}','${task.id}')">
+      <span class="sidebar-task-flag">${lang.flag}</span>
+      <span>${esc(task.emoji||'📝')} ${esc(task.name)}</span>
+    </div>`
+  ).join('')
 }
 function goLangs(){curLang=null;curTask=null;showPage('pgLangs');renderLangs()}
 function goTasks(){curTask=null;showPage('pgTasks');renderTasks()}
@@ -810,6 +966,8 @@ function delTask(id){
 function openTask(id){
   curTask=id; curDir='A'
   const task=gt(curLang,id)
+  task.lastOpened=Date.now()
+  save()
   const hasContent=(task.pA||'').trim()!=''||(task.pB||'').trim()!=''
   curMode=hasContent?'practice':'edit'
   const lang=gl(curLang)
