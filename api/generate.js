@@ -46,8 +46,35 @@ export default async function handler(req, res) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error('Gemini API error:', errText);
-      return res.status(502).json({ error: 'Помилка від Gemini API', details: errText });
+      console.error('Gemini API error:', geminiRes.status, errText);
+
+      // Try to parse Google's error body for a more specific status code
+      let googleStatus = '';
+      try {
+        const parsed = JSON.parse(errText);
+        googleStatus = parsed?.error?.status || '';
+      } catch (e) {}
+
+      if (geminiRes.status === 503 || googleStatus === 'UNAVAILABLE') {
+        return res.status(503).json({
+          error: 'Модель перевантажено. Зачекайте кілька секунд і спробуйте ще раз.',
+          code: 'overloaded',
+        });
+      }
+      if (geminiRes.status === 429 || googleStatus === 'RESOURCE_EXHAUSTED') {
+        return res.status(429).json({
+          error: 'Забагато запитів підряд. Зачекайте трохи і спробуйте знову.',
+          code: 'rate_limited',
+        });
+      }
+      if (geminiRes.status >= 500) {
+        return res.status(502).json({
+          error: 'Тимчасова помилка на боці Gemini. Спробуйте ще раз за кілька секунд.',
+          code: 'server_error',
+        });
+      }
+
+      return res.status(502).json({ error: 'Помилка від Gemini API', details: errText, code: 'api_error' });
     }
 
     const data = await geminiRes.json();
@@ -60,6 +87,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ result: text });
   } catch (err) {
     console.error('Handler error:', err);
-    return res.status(500).json({ error: 'Внутрішня помилка сервера', details: err.message });
+    return res.status(500).json({
+      error: 'Не вдалося з\'єднатися з Gemini. Перевірте інтернет і спробуйте ще раз.',
+      details: err.message,
+      code: 'network_error',
+    });
   }
 }
