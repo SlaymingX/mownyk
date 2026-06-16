@@ -171,7 +171,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--err)}
 
 
-/* ── header v2 ── */
+img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;display:inline-block}
+
 .hdr{background:var(--surface);border-bottom:.5px solid var(--border);padding:0 14px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
 .hamburger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:none;background:transparent;cursor:pointer;color:var(--text);font-size:18px;flex-shrink:0;transition:background var(--tr)}
 .hamburger:hover{background:var(--surface2)}
@@ -216,7 +217,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sidebar-task-flag{font-size:14px}
 .sidebar-empty{font-size:12px;color:var(--text3);padding:8px 12px}
 
-/* ── google drive dropdown ── */
+/* ── gdrive avatar button ── */
+.gdrive-avatar-btn{width:36px;height:36px;border-radius:50%;border:.5px solid var(--border2);background:var(--surface2);cursor:pointer;flex-shrink:0;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:16px;transition:border-color var(--tr);position:relative}
+.gdrive-avatar-btn:hover{border-color:var(--accent)}
+.gdrive-avatar-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;transition:opacity .6s ease}
+.gdrive-avatar-btn.syncing .gdrive-avatar-img{animation:avatar-pulse 1.4s ease-in-out infinite}
+@keyframes avatar-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.gdrive-avatar-ring{position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--accent);opacity:0;pointer-events:none}
+.gdrive-avatar-btn.syncing .gdrive-avatar-ring{opacity:1;animation:avatar-ring-spin 1.1s linear infinite}
+@keyframes avatar-ring-spin{0%{transform:rotate(0deg);border-color:var(--accent) transparent transparent transparent}100%{transform:rotate(360deg);border-color:var(--accent) transparent transparent transparent}}
+.gdrive-avatar-btn.error{border-color:var(--err)}
+
 .gdrive-wrap{position:relative;flex-shrink:0}
 .gdrive-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r);box-shadow:0 6px 24px rgba(0,0,0,.18);min-width:190px;z-index:150;overflow:hidden;display:none}
 .gdrive-dropdown.open{display:block}
@@ -255,6 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gem-result.error{color:var(--err)}
 .gem-footer{padding:10px 14px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" defer></script>
 </head>
 <body>
 
@@ -264,8 +276,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <nav class="bc" id="bc"></nav>
   <div class="hdr-r" id="hdrR"></div>
   <div class="gdrive-wrap">
-    <button class="btn btn-sm" id="gdriveBtn" onclick="toggleGdriveDropdown()">
-      <span id="gdriveBtnIcon">☁️</span> <span id="gdriveBtnText">Локально</span>
+    <button class="gdrive-avatar-btn" id="gdriveBtn" onclick="toggleGdriveDropdown()" title="Google Drive">
+      <span class="gdrive-avatar-ring"></span>
+      <span id="gdriveBtnIcon">☁️</span>
+      <img class="gdrive-avatar-img" id="gdriveBtnImg" style="display:none" alt="">
     </button>
     <div class="gdrive-dropdown" id="gdriveDropdown">
       <div class="gdrive-dd-status" id="gdriveDdStatus">Локально (без синхронізації)</div>
@@ -496,8 +510,10 @@ let openTwIdx=-1; // which .tw is currently open (has inline input)
 // GOOGLE DRIVE SYNC — server-side OAuth with refresh token
 // ──────────────────────────────────────────────────────
 const GDRIVE_CLIENT_ID = '706161548380-19gntpoehss4jld2fa4ofogk1ucg589h.apps.googleusercontent.com';
-const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile';
 const GDRIVE_FILE_NAME = 'linguaflow.json';
+
+let gUserPhoto = null;      // cached profile picture URL
 
 let gToken = null;          // current access_token (in-memory only)
 let gTokenExpiry = 0;       // ms timestamp when access_token expires
@@ -525,10 +541,28 @@ function gdriveSignIn(){
 async function gdriveSignOut(){
   try{ await fetch('/api/logout', {method:'POST'}) }catch(e){}
   gToken=null; gFileId=null; gTokenExpiry=0
+  gUserPhoto=null
   clearTimeout(gRefreshTimer)
   DB={langs:[]}
   document.getElementById('authOverlay').style.display='flex'
   renderHdrR()
+}
+
+async function fetchUserPhoto(){
+  if(!gToken) return
+  try{
+    const r=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{
+      headers:{'Authorization':'Bearer '+gToken}
+    })
+    if(!r.ok) return
+    const data=await r.json()
+    if(data.picture){
+      gUserPhoto=data.picture
+      renderGdriveButton()
+    }
+  }catch(e){
+    console.warn('fetchUserPhoto failed:', e)
+  }
 }
 
 // Ask our server for a fresh access_token using the httpOnly refresh cookie.
@@ -566,20 +600,24 @@ function scheduleTokenRefresh(){
 }
 
 function setSyncBadge(cls, text){
+  const btn=document.getElementById('gdriveBtn')
   const icon=document.getElementById('gdriveBtnIcon')
-  const txt=document.getElementById('gdriveBtnText')
+  const img=document.getElementById('gdriveBtnImg')
   const status=document.getElementById('gdriveDdStatus')
   if(!icon)return
   if(cls==='error'){
-    icon.textContent='⚠️'
-    txt.textContent='Помилка'
+    btn.classList.remove('syncing')
+    btn.classList.add('error')
+    if(!gUserPhoto){ icon.textContent='⚠️'; icon.style.display='flex'; img.style.display='none' }
     if(status) status.textContent=text
   } else if(cls==='syncing'){
-    icon.textContent='⏳'
-    txt.textContent='Синхронізація…'
+    btn.classList.remove('error')
+    btn.classList.add('syncing')
+    if(!gUserPhoto){ icon.textContent='⏳'; icon.style.display='flex'; img.style.display='none' }
     if(status) status.textContent=text
   } else {
-    // Reflect actual auth state
+    btn.classList.remove('syncing','error')
+    // Reflect actual auth state (photo or fallback icon)
     renderGdriveButton()
     if(status && text) status.textContent=text
   }
@@ -703,6 +741,7 @@ async function gdriveInit(){
     document.getElementById('authOverlay').style.display='none'
     setSyncBadge('syncing','Завантаження…')
     await gdriveLoad()
+    fetchUserPhoto()
     renderLangs(); showPage('pgLangs')
     setSyncBadge('','✓ Google Drive')
     renderHdrR()
@@ -727,6 +766,7 @@ async function gdriveInit(){
     document.getElementById('authOverlay').style.display='none'
     setSyncBadge('syncing','Завантаження…')
     await gdriveLoad()
+    fetchUserPhoto()
     renderLangs(); showPage('pgLangs')
     setSyncBadge('','✓ Google Drive')
     renderHdrR()
@@ -739,6 +779,22 @@ async function gdriveInit(){
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// Replace native emoji glyphs (flags especially render as bare letters on
+// Windows/Linux Chrome) with Twemoji images, scoped to the given element.
+// Safe to call even before the CDN script has loaded.
+function parseEmoji(el){
+  if(!el) return
+  if(window.twemoji){
+    try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){}
+  } else {
+    // CDN script may still be loading (defer) — retry shortly once.
+    setTimeout(()=>{
+      if(window.twemoji){
+        try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){}
+      }
+    }, 300)
+  }
+}
 function gl(id){return DB.langs.find(l=>l.id===id)}
 function gt(lid,tid){return gl(lid)?.tasks?.find(t=>t.id===tid)}
 
@@ -769,7 +825,8 @@ function applyState(state){
   if(curTask && curLang){
     const lang=gl(curLang)
     if(lang && gt(curLang,curTask)){
-      document.getElementById('eFlag').textContent=lang.flag
+      document.getElementById('eFlag').innerHTML=lang.flag
+      parseEmoji(document.getElementById('eFlag'))
       showPage('pgEditor')
       curDir='A'
       const task=gt(curLang,curTask)
@@ -783,7 +840,8 @@ function applyState(state){
   if(curLang){
     const lang=gl(curLang)
     if(lang){
-      document.getElementById('tFlag').textContent=lang.flag
+      document.getElementById('tFlag').innerHTML=lang.flag
+      parseEmoji(document.getElementById('tFlag'))
       document.getElementById('tTitle').textContent=lang.name
       showPage('pgTasks'); renderTasks()
       return
@@ -808,6 +866,7 @@ function renderBC(){
     }
   }
   document.getElementById('bc').innerHTML=h
+  parseEmoji(document.getElementById('bc'))
 }
 function renderHdrR(){
   const ha=document.getElementById('hdrR')
@@ -818,24 +877,34 @@ function renderHdrR(){
   renderGdriveButton()
 }
 function renderGdriveButton(){
+  const btn=document.getElementById('gdriveBtn')
   const icon=document.getElementById('gdriveBtnIcon')
-  const text=document.getElementById('gdriveBtnText')
+  const img=document.getElementById('gdriveBtnImg')
   const status=document.getElementById('gdriveDdStatus')
   const signInItem=document.getElementById('gdriveDdSignIn')
   const signOutItem=document.getElementById('gdriveDdSignOut')
   if(!icon)return
+  btn.classList.remove('error')
   if(gToken){
-    icon.textContent='✓'
-    text.textContent='Google Drive'
     status.textContent='Синхронізовано з Google Drive'
     signInItem.style.display='none'
     signOutItem.style.display='flex'
+    if(gUserPhoto){
+      img.src=gUserPhoto
+      img.style.display='block'
+      icon.style.display='none'
+    } else {
+      icon.textContent='✓'
+      icon.style.display='flex'
+      img.style.display='none'
+    }
   } else {
-    icon.textContent='☁️'
-    text.textContent='Локально'
     status.textContent='Локально (без синхронізації)'
     signInItem.style.display='flex'
     signOutItem.style.display='none'
+    icon.textContent='☁️'
+    icon.style.display='flex'
+    img.style.display='none'
   }
 }
 function toggleGdriveDropdown(){
@@ -897,6 +966,7 @@ function renderSidebarRecent(){
       <span>${esc(task.emoji||'📝')} ${esc(task.name)}</span>
     </div>`
   ).join('')
+  parseEmoji(el)
 }
 function goLangs(){
   if(curTask||curLang){ history.back(); return }
@@ -924,11 +994,14 @@ function renderLangs(){
     </div>`
   })
   h+=`<div class="ladd" onclick="addLangM()"><span class="plus">+</span><span>Додати мову</span></div>`
-  document.getElementById('langGrid').innerHTML=h
+  const grid=document.getElementById('langGrid')
+  grid.innerHTML=h
+  parseEmoji(grid)
 }
 function openLang(id){
   curLang=id; const l=gl(id)
-  document.getElementById('tFlag').textContent=l.flag
+  document.getElementById('tFlag').innerHTML=l.flag
+  parseEmoji(document.getElementById('tFlag'))
   document.getElementById('tTitle').textContent=l.name
   showPage('pgTasks'); renderTasks()
   pushHistory()
@@ -950,11 +1023,13 @@ function editLangM(id){
   renderLPG(); openMo('moLang')
 }
 function renderLPG(){
-  document.getElementById('lpg').innerHTML=PRESETS.map(l=>
+  const lpg=document.getElementById('lpg')
+  lpg.innerHTML=PRESETS.map(l=>
     `<div class="lpi" onclick="pickLP(this,'${l.flag}','${esc(l.name)}','${esc(l.native)}')">
       <span class="lpif">${l.flag}</span>
       <div class="lpin">${l.name}</div>
     </div>`).join('')
+  parseEmoji(lpg)
 }
 function pickLP(el,flag,name,native){
   document.querySelectorAll('.lpi').forEach(i=>i.classList.remove('sel'))
@@ -998,7 +1073,9 @@ function renderTasks(){
     </div>`
   })
   h+=`<div class="tadd" onclick="addTaskM()"><span style="font-size:18px">＋</span><span>Нове завдання</span></div>`
-  document.getElementById('taskList').innerHTML=h
+  const list=document.getElementById('taskList')
+  list.innerHTML=h
+  parseEmoji(list)
 }
 function addTaskM(){
   editingTask=null
@@ -1155,7 +1232,8 @@ function openTask(id){
   const hasContent=(task.pA||'').trim()!=''||(task.pB||'').trim()!=''
   curMode=hasContent?'practice':'edit'
   const lang=gl(curLang)
-  document.getElementById('eFlag').textContent=lang.flag
+  document.getElementById('eFlag').innerHTML=lang.flag
+  parseEmoji(document.getElementById('eFlag'))
   showPage('pgEditor')
   loadEditor()
   if(curMode==='practice') buildPractice()
