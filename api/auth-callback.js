@@ -6,8 +6,8 @@
 // the browser back to the app with the access_token in the URL hash
 // (hash fragments never reach the server, so this is safe).
 
-const CLIENT_ID = process.env.GDRIVE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GDRIVE_CLIENT_SECRET;
+const CLIENT_ID = (process.env.GDRIVE_CLIENT_ID || '').trim();
+const CLIENT_SECRET = (process.env.GDRIVE_CLIENT_SECRET || '').trim();
 
 function getRedirectUri(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';

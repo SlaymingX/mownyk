@@ -3,8 +3,8 @@
 // expires) to silently get a new access_token using the refresh_token
 // stored in the httpOnly cookie. No popup, no redirect — just a fetch.
 
-const CLIENT_ID = process.env.GDRIVE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GDRIVE_CLIENT_SECRET;
+const CLIENT_ID = (process.env.GDRIVE_CLIENT_ID || '').trim();
+const CLIENT_SECRET = (process.env.GDRIVE_CLIENT_SECRET || '').trim();
 
 function parseCookies(header) {
   const out = {};
