@@ -266,7 +266,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
 .gem-result.error{color:var(--err)}
 .gem-footer{padding:10px 14px;border-top:.5px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@twemoji/api@latest/dist/twemoji.min.js" crossorigin="anonymous" defer></script>
 </head>
 <body>
 
@@ -785,12 +785,12 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function parseEmoji(el){
   if(!el) return
   if(window.twemoji){
-    try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){}
+    try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){console.warn('twemoji parse failed:',e)}
   } else {
     // CDN script may still be loading (defer) — retry shortly once.
     setTimeout(()=>{
       if(window.twemoji){
-        try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){}
+        try{ window.twemoji.parse(el, {folder:'svg', ext:'.svg'}) }catch(e){console.warn('twemoji parse failed:',e)}
       }
     }, 300)
   }
