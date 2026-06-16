@@ -179,7 +179,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap;min-width:0;overflow:hidden}
 @media(max-width:520px){.bc{display:none}}
 
-/* ── loading state ── */
+/* ── emoji picker ── */
+.emoji-field-row{display:flex;align-items:center;gap:10px}
+.emoji-preview-btn{width:48px;height:48px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface2);font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:border-color var(--tr)}
+.emoji-preview-btn:hover{border-color:var(--accent)}
+.emoji-search-input{flex:1}
+.emoji-picker-panel{margin-top:10px;border:.5px solid var(--border);border-radius:var(--r);background:var(--surface2);overflow:hidden}
+.emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:8px;max-height:170px;overflow-y:auto}
+.emoji-grid-item{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:20px;border-radius:7px;cursor:pointer;transition:background var(--tr)}
+.emoji-grid-item:hover{background:var(--accent-light)}
+.emoji-grid-empty{grid-column:1/-1;text-align:center;font-size:12px;color:var(--text3);padding:14px}
 .loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text2);grid-column:1/-1}
 .loading-icon{font-size:34px;margin-bottom:14px;animation:loading-pulse 1.4s ease-in-out infinite}
 @keyframes loading-pulse{0%,100%{opacity:.5;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}
@@ -420,7 +429,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="mo" id="moTask">
   <div class="md">
     <div class="mdtitle" id="moTaskT">Нове завдання</div>
-    <div class="fg"><label class="fl">Emoji</label><input class="fi" id="tEmo" style="font-size:19px;width:68px" maxlength="4" placeholder="📝"></div>
+    <div class="fg">
+      <label class="fl">Emoji</label>
+      <div class="emoji-field-row">
+        <div class="emoji-preview-btn" id="tEmoPreview">📝</div>
+        <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji (pen, heart, fire…)" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onfocus="showEmojiPanel()">
+      </div>
+      <div class="emoji-picker-panel" id="emojiPanel" style="display:none">
+        <div class="emoji-grid" id="emojiGrid"></div>
+      </div>
+    </div>
     <div class="fg"><label class="fl">Назва</label><input class="fi" id="tName" placeholder="Наприклад: Здоров'я"></div>
     <div class="mdact">
       <button class="btn" onclick="closeMo('moTask')">Скасувати</button>
@@ -930,15 +948,19 @@ function renderTasks(){
 function addTaskM(){
   editingTask=null
   document.getElementById('moTaskT').textContent='Нове завдання'
-  document.getElementById('tEmo').value=''
+  setTaskEmoji('📝')
+  document.getElementById('tEmoSearch').value=''
   document.getElementById('tName').value=''
+  document.getElementById('emojiPanel').style.display='none'
   openMo('moTask')
 }
 function editTaskM(id){
   editingTask=id; const t=gt(curLang,id)
   document.getElementById('moTaskT').textContent='Редагувати завдання'
-  document.getElementById('tEmo').value=t.emoji||''
+  setTaskEmoji(t.emoji||'📝')
+  document.getElementById('tEmoSearch').value=''
   document.getElementById('tName').value=t.name
+  document.getElementById('emojiPanel').style.display='none'
   openMo('moTask')
 }
 function flagToCode(flag){
@@ -959,7 +981,7 @@ function getDirLabels(flag){
   return {lA:`UA → ${code}`, lB:`${code} → UA`}
 }
 function saveTask(){
-  const emoji=document.getElementById('tEmo').value.trim()||'📝'
+  const emoji=document.getElementById('tEmoPreview').textContent.trim()||'📝'
   const name=document.getElementById('tName').value.trim()
   if(!name){toast('Введіть назву','err');return}
   const lang=gl(curLang); if(!lang.tasks)lang.tasks=[]
@@ -972,6 +994,98 @@ function saveTask(){
   save(); closeMo('moTask'); renderTasks()
   toast(editingTask?'Збережено':'Завдання створено ✅','ok')
 }
+// ──────────────────────────────────────────────────────
+// EMOJI PICKER
+// ──────────────────────────────────────────────────────
+const EMOJI_DB=[
+  ['📝','pen note write memo task'],['✏️','pencil write edit'],['🖊️','pen ballpoint'],
+  ['📚','book books study library'],['📖','book open read'],['📓','notebook'],
+  ['🎯','target goal aim dart'],['💡','idea light bulb think'],['🧠','brain mind think'],
+  ['❤️','heart love'],['🩷','heart pink love'],['💪','muscle strong arm'],
+  ['🔥','fire hot flame'],['⭐','star favorite'],['✨','sparkles magic shine'],
+  ['🎓','graduation cap school education'],['🏆','trophy win award'],['🥇','medal gold first'],
+  ['🗣️','speak talk speech mouth'],['💬','speech bubble chat talk'],['🌍','world earth globe'],
+  ['🍎','apple fruit food'],['🍕','pizza food'],['🍔','burger food'],['☕','coffee drink'],
+  ['🏠','house home'],['🏢','office building work'],['🚗','car drive vehicle'],
+  ['✈️','plane airplane travel fly'],['🚀','rocket launch fast'],['⏰','clock alarm time'],
+  ['📅','calendar date schedule'],['🎵','music note song'],['🎬','movie film clapper'],
+  ['🎨','art paint palette'],['⚽','soccer football ball'],['🏀','basketball ball'],
+  ['🎮','game controller play'],['💼','briefcase work business'],['💰','money cash'],
+  ['🛒','cart shopping'],['🐶','dog animal pet'],['🐱','cat animal pet'],
+  ['🌱','plant seedling grow'],['🌳','tree nature'],['☀️','sun sunny weather'],
+  ['🌙','moon night'],['☁️','cloud weather'],['🌧️','rain weather'],
+  ['❄️','snow snowflake cold'],['🔑','key unlock'],['🔒','lock secure'],
+  ['📞','phone call telephone'],['📱','phone mobile smartphone'],['💻','laptop computer'],
+  ['🖥️','desktop computer monitor'],['⌨️','keyboard type'],['🖱️','mouse computer'],
+  ['📷','camera photo'],['🎤','microphone sing mic'],['🎧','headphones music listen'],
+  ['🧩','puzzle piece solve'],['🔬','microscope science'],['🧪','test tube chemistry'],
+  ['🌐','globe internet web language'],['🗺️','map travel'],['🧭','compass direction'],
+  ['🛏️','bed sleep'],['🍳','cooking egg breakfast'],['🥗','salad food healthy'],
+  ['🏃','run runner exercise'],['🧘','meditate yoga calm'],['😴','sleep tired'],
+  ['😀','smile happy face'],['😂','laugh funny lol'],['😍','love heart eyes'],
+  ['😎','cool sunglasses'],['🤔','think hmm question'],['😢','sad cry'],
+  ['😡','angry mad'],['🥳','party celebrate'],['🙏','pray thanks please'],
+  ['👍','thumbs up good ok'],['👎','thumbs down bad'],['👏','clap applause'],
+  ['🙌','hands up celebrate'],['🤝','handshake deal'],['✅','check done complete'],
+  ['❌','cross wrong no'],['❓','question mark'],['❗','exclamation mark important'],
+  ['🔔','bell notification ring'],['🎁','gift present box'],['🏖️','beach vacation summer'],
+  ['🏔️','mountain travel nature'],['🚲','bike bicycle'],['🚌','bus transport'],
+  ['🚂','train transport'],['⛅','weather cloud sun'],['🌈','rainbow colorful'],
+  ['🦋','butterfly insect'],['🐦','bird animal'],['🐟','fish animal'],
+  ['🍇','grapes fruit'],['🍌','banana fruit'],['🥕','carrot vegetable'],
+  ['🍞','bread food'],['🧀','cheese food'],['🍷','wine drink'],
+  ['🍺','beer drink'],['🎉','party tada celebrate'],['🎈','balloon party'],
+  ['🕐','clock time hour'],['📊','chart graph data'],['📈','chart up growth'],
+  ['📉','chart down decline'],['🧾','receipt bill paper'],['💳','card payment'],
+  ['🏥','hospital medical'],['💊','pill medicine'],['🩺','stethoscope doctor'],
+  ['👨‍🏫','teacher man'],['👩‍🏫','teacher woman'],['🧑‍🎓','student graduate'],
+  ['🇺🇦','flag ukraine'],['🇬🇧','flag uk england'],['🇩🇪','flag germany'],
+  ['🍿','popcorn movie snack'],['🎹','piano music keyboard'],['🎸','guitar music'],
+  ['🎻','violin music'],['🥁','drum music'],['🎺','trumpet music'],
+];
+
+function setTaskEmoji(emoji){
+  document.getElementById('tEmoPreview').textContent=emoji
+}
+function showEmojiPanel(){
+  const panel=document.getElementById('emojiPanel')
+  panel.style.display='block'
+  const q=document.getElementById('tEmoSearch').value
+  if(!q.trim()) renderEmojiGrid(EMOJI_DB.slice(0,28).map(e=>e[0]))
+  else searchEmoji(q)
+}
+function searchEmoji(query){
+  const panel=document.getElementById('emojiPanel')
+  panel.style.display='block'
+  const q=query.trim().toLowerCase()
+  if(!q){ renderEmojiGrid(EMOJI_DB.slice(0,28).map(e=>e[0])); return }
+  const matches=EMOJI_DB.filter(([emoji,keywords])=>keywords.includes(q))
+  renderEmojiGrid(matches.map(e=>e[0]))
+}
+function renderEmojiGrid(emojis){
+  const grid=document.getElementById('emojiGrid')
+  if(emojis.length===0){
+    grid.innerHTML='<div class="emoji-grid-empty">Нічого не знайдено</div>'
+    return
+  }
+  grid.innerHTML=emojis.map(e=>
+    `<div class="emoji-grid-item" onclick="pickEmoji('${e}')">${e}</div>`
+  ).join('')
+}
+function pickEmoji(emoji){
+  setTaskEmoji(emoji)
+  document.getElementById('tEmoSearch').value=''
+  document.getElementById('emojiPanel').style.display='none'
+}
+// Close emoji panel when clicking outside it
+document.addEventListener('click', e=>{
+  const panel=document.getElementById('emojiPanel')
+  const row=document.querySelector('.emoji-field-row')
+  if(panel && panel.style.display==='block' && row && !row.contains(e.target) && !panel.contains(e.target)){
+    panel.style.display='none'
+  }
+})
+
 function delTask(id){
   cfm(`Видалити завдання "${gt(curLang,id).name}"?`,()=>{
     const l=gl(curLang); l.tasks=l.tasks.filter(t=>t.id!==id)
@@ -1219,6 +1333,10 @@ function openInput(idx, twEl){
   const inp=document.createElement('input')
   inp.type='text'
   inp.className='tw-input'
+  inp.autocapitalize='none'
+  inp.autocomplete='off'
+  inp.autocorrect='off'
+  inp.spellcheck=false
   inp.value=saved
   inp.placeholder='…'
   // auto-size
@@ -1361,7 +1479,11 @@ async function gemGenerate(){
       body:JSON.stringify({words})
     })
     const data=await resp.json()
-    if(!resp.ok) throw new Error(data.error||'Помилка сервера')
+    if(!resp.ok){
+      const err=new Error(data.error||'Помилка сервера')
+      err.code=data.code
+      throw err
+    }
     result.className='gem-result'
     result.textContent=data.result
     window._gemResult=data.result
@@ -1369,7 +1491,10 @@ async function gemGenerate(){
     toast('Тексти згенеровано ✅','ok')
   }catch(e){
     result.className='gem-result error'
-    result.textContent='❌ '+e.message
+    const isRetryable = e.code==='overloaded' || e.code==='rate_limited' || e.code==='server_error' || e.code==='network_error'
+    result.innerHTML = '⚠️ '+esc(e.message) + (isRetryable
+      ? ' <button class="btn btn-sm" style="margin-left:8px;vertical-align:middle" onclick="gemGenerate()">🔄 Спробувати ще раз</button>'
+      : '')
   }finally{
     btn.disabled=false; btn.textContent='✨ Згенерувати'
   }
