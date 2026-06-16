@@ -437,8 +437,17 @@ function initTokenClient(){
 // Direct click handler — called from onclick, must stay synchronous
 function gdriveSignIn(){
   if(gTokenClient){
-    // Happy path: client already initialized, call directly (no await = keeps user gesture)
-    gTokenClient.requestAccessToken({prompt:''})
+    try{
+      // Happy path: client already initialized, call directly (no await = keeps user gesture)
+      gTokenClient.requestAccessToken({prompt:''})
+    }catch(err){
+      console.error('requestAccessToken threw:', err)
+      const errEl=document.getElementById('authError')
+      if(errEl){
+        errEl.style.display='block'
+        errEl.textContent='Браузер блокує вікно Google. Перевірте: чи дозволені попапи та сторонні cookies для accounts.google.com, чи вимкнено блокувальники реклами/трекерів для цього сайту.'
+      }
+    }
     return
   }
   // Fallback: GIS not yet ready — load it now and retry
@@ -478,13 +487,30 @@ function setSyncBadge(cls, text){
 }
 
 async function gdriveFetch(url, opts={}){
-  const r=await fetch(url,{...opts, headers:{...opts.headers,'Authorization':'Bearer '+gToken}})
+  if(!gToken){
+    console.warn('gdriveFetch called without token')
+    return null
+  }
+  let r
+  try{
+    r=await fetch(url,{...opts, headers:{...opts.headers,'Authorization':'Bearer '+gToken}})
+  }catch(networkErr){
+    console.error('gdriveFetch network error:', networkErr)
+    setSyncBadge('error','Помилка мережі')
+    return null
+  }
   if(r.status===401){
+    console.warn('gdriveFetch 401 — token expired')
     setSyncBadge('error','Сесія закінчилась — увійдіть знову')
     gToken=null
     document.getElementById('authOverlay').style.display='flex'
     renderHdrR()
     return null
+  }
+  if(!r.ok){
+    const errText=await r.text().catch(()=>'')
+    console.error('gdriveFetch HTTP error:', r.status, errText)
+    setSyncBadge('error','Помилка Drive: '+r.status)
   }
   return r
 }
@@ -524,25 +550,34 @@ async function gdriveUpload(){
       headers:{'Content-Type':`multipart/related; boundary=${boundary}`},
       body:mp
     })
-    if(!r)return
+    if(!r||!r.ok){console.error('gdriveUpload: create failed');return false}
     const d=await r.json(); gFileId=d.id
+    console.log('gdriveUpload: file created', gFileId)
+    return true
   } else {
-    await gdriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,{
+    const r=await gdriveFetch(`https://www.googleapis.com/upload/drive/v3/files/${gFileId}?uploadType=media`,{
       method:'PATCH',
       headers:{'Content-Type':'application/json'},
       body
     })
+    if(!r||!r.ok){console.error('gdriveUpload: update failed');return false}
+    console.log('gdriveUpload: file updated')
+    return true
   }
 }
 
 function save(){
   try{localStorage.setItem('lf4',JSON.stringify(DB))}catch(e){}
-  if(!gToken)return
+  if(!gToken){
+    console.log('save(): no gToken, saved locally only')
+    return
+  }
   clearTimeout(gSaveTimer)
   setSyncBadge('syncing','Збереження…')
   gSaveTimer=setTimeout(async()=>{
-    await gdriveUpload()
-    setSyncBadge('','✓ Google Drive')
+    const ok=await gdriveUpload()
+    if(ok) setSyncBadge('','✓ Google Drive')
+    else setSyncBadge('error','Не збереглося на Drive')
   },1200)
 }
 
