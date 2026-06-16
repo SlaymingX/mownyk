@@ -27,8 +27,11 @@ export default async function handler(req, res) {
     return res.status(400).send('Missing authorization code');
   }
   if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error('Missing env vars. CLIENT_ID present:', !!CLIENT_ID, 'CLIENT_SECRET present:', !!CLIENT_SECRET);
     return res.status(500).send('Server not configured: missing GDRIVE_CLIENT_ID / GDRIVE_CLIENT_SECRET');
   }
+  // Diagnostic: log lengths only (never log the actual secret value)
+  console.log('auth-callback: client_id length=', CLIENT_ID.length, 'client_secret length=', CLIENT_SECRET.length, 'redirect_uri=', redirectUri);
 
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
     const tokens = await tokenRes.json();
 
     if (!tokenRes.ok || tokens.error) {
-      console.error('Token exchange failed:', tokens);
+      console.error('Token exchange failed. HTTP status:', tokenRes.status, 'Full response:', JSON.stringify(tokens));
       return res.redirect(302, `${appUrl}#auth_error=${encodeURIComponent(tokens.error || 'token_exchange_failed')}`);
     }
 
