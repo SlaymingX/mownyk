@@ -14,7 +14,7 @@ function parseCookies(header) {
     if (idx === -1) return;
     const k = pair.slice(0, idx).trim();
     const v = pair.slice(idx + 1).trim();
-    out[k] = decodeURIComponent(v);
+    try { out[k] = decodeURIComponent(v); } catch (e) { out[k] = v; }
   });
   return out;
 }
@@ -28,6 +28,7 @@ export default async function handler(req, res) {
   const refreshToken = cookies.gd_rt;
 
   if (!refreshToken) {
+    console.warn('refresh.js: no gd_rt cookie found. Raw cookie header:', req.headers.cookie || '(none)');
     return res.status(401).json({ error: 'no_refresh_token' });
   }
   if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
       // If Google says the refresh token itself is invalid/revoked,
       // clear the cookie so we don't keep retrying with a dead token.
       if (tokens.error === 'invalid_grant') {
-        res.setHeader('Set-Cookie', 'gd_rt=; HttpOnly; Secure; SameSite=Lax; Path=/api/; Max-Age=0');
+        res.setHeader('Set-Cookie', 'gd_rt=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');
       }
       return res.status(401).json({ error: tokens.error || 'refresh_failed' });
     }

@@ -9,7 +9,7 @@ function parseCookies(header) {
     if (idx === -1) return;
     const k = pair.slice(0, idx).trim();
     const v = pair.slice(idx + 1).trim();
-    out[k] = decodeURIComponent(v);
+    try { out[k] = decodeURIComponent(v); } catch (e) { out[k] = v; }
   });
   return out;
 }

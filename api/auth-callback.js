@@ -53,12 +53,12 @@ export default async function handler(req, res) {
     const { access_token, refresh_token, expires_in } = tokens;
 
     // Store refresh_token in a secure httpOnly cookie — never exposed to JS.
-    // Without refresh_token (e.g. re-consent without prompt=consent), keep
-    // whatever cookie already exists rather than wiping it.
+    // encodeURIComponent because Google refresh tokens often contain
+    // characters like '/' '+' '=' that aren't safe raw in a Set-Cookie value.
     const cookies = [];
     if (refresh_token) {
       cookies.push(
-        `gd_rt=${refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/api/; Max-Age=${60 * 60 * 24 * 180}`
+        `gd_rt=${encodeURIComponent(refresh_token)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 180}`
       );
     }
     if (cookies.length) res.setHeader('Set-Cookie', cookies);
