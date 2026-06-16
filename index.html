@@ -235,10 +235,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gem-head-arrow.open{transform:rotate(180deg)}
 .gem-body{display:none;flex-direction:column;gap:0}
 .gem-body.open{display:flex}
-.gem-input-row{padding:12px 14px;display:flex;gap:8px;align-items:flex-end;border-bottom:.5px solid var(--border)}
-.gem-textarea{flex:1;resize:vertical;min-height:72px;padding:8px 11px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color var(--tr);line-height:1.5}
+.gem-input-row{padding:12px 14px;display:flex;flex-direction:column;gap:10px;border-bottom:.5px solid var(--border)}
+.gem-textarea{width:100%;resize:none;min-height:44px;max-height:25vh;overflow-y:auto;padding:9px 12px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color var(--tr);line-height:1.5}
 .gem-textarea:focus{border-color:var(--accent)}
 .gem-textarea::placeholder{color:var(--text3)}
+.gem-btn-row{display:flex;gap:8px}
+.gem-btn-row .btn{flex:1;justify-content:center}
 .gem-result{padding:14px;font-size:14px;line-height:1.75;color:var(--text);white-space:pre-wrap;min-height:60px;max-height:420px;overflow-y:auto}
 .gem-result.loading{color:var(--text3);font-style:italic}
 .gem-result.error{color:var(--err)}
@@ -363,9 +365,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="gem-body" id="gemBody">
         <div class="gem-input-row">
-          <textarea class="gem-textarea" id="gemWords" placeholder="Введіть слова або словосполучення через кому або з нового рядка…"></textarea>
-          <button class="btn btn-p btn-sm" id="gemGenBtn" onclick="gemGenerate()">✨ Згенерувати</button>
-          <button class="btn btn-sm" onclick="gemClear()">🗑️ Очистити</button>
+          <textarea class="gem-textarea" id="gemWords" placeholder="Введіть слова або словосполучення через кому або з нового рядка…" oninput="gemAutoGrow(this)"></textarea>
+          <div class="gem-btn-row">
+            <button class="btn btn-p btn-sm" id="gemGenBtn" onclick="gemGenerate()">✨ Згенерувати</button>
+            <button class="btn btn-sm" onclick="gemClear()">🗑️ Очистити</button>
+          </div>
         </div>
         <div class="gem-result" id="gemResult" style="display:none"></div>
         <div class="gem-footer" id="gemFooter" style="display:none">
@@ -1405,8 +1409,14 @@ function gemTransfer(){
   toast('Тексти перенесено в обидві панелі ✅','ok')
 }
 
+function gemAutoGrow(el){
+  el.style.height='auto'
+  el.style.height=el.scrollHeight+'px'
+}
 function gemClear(){
-  document.getElementById('gemWords').value=''
+  const ta=document.getElementById('gemWords')
+  ta.value=''
+  ta.style.height='auto'
   const result=document.getElementById('gemResult')
   result.style.display='none'; result.textContent=''
   document.getElementById('gemFooter').style.display='none'
