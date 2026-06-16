@@ -1260,7 +1260,14 @@ async function init(){
   renderLangs(); showPage('pgLangs')
   renderHdrR()
 }
-init()
+// authOverlay (and other elements) are defined further down in the HTML,
+// after this <script> tag — wait until the whole document is parsed
+// before touching the DOM, otherwise getElementById returns null.
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
 
 // ── PWA Service Worker ─────────────────────────────
 if('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== 'www.claudeusercontent.com'){
