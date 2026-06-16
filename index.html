@@ -405,11 +405,21 @@ let gFileId = null;
 let gSaveTimer = null;
 let gRefreshTimer = null;
 
-// Redirect to our server endpoint, which builds the Google consent URL
-// itself — guaranteeing redirect_uri exactly matches what auth-callback
-// expects (same proto/host detection logic, computed server-side).
+// Redirect the whole page to Google's consent screen.
+// access_type=offline + prompt=consent guarantees we get a refresh_token
+// on the very first authorization.
 function gdriveSignIn(){
-  location.href = '/api/auth-start'
+  const redirectUri = `${location.origin}/api/auth-callback`
+  const params = new URLSearchParams({
+    client_id: GDRIVE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GDRIVE_SCOPE,
+    access_type: 'offline',
+    prompt: 'consent',
+    include_granted_scopes: 'true',
+  })
+  location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
 async function gdriveSignOut(){
