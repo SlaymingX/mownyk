@@ -393,90 +393,76 @@ let pWords=[];
 let openTwIdx=-1; // which .tw is currently open (has inline input)
 
 // ──────────────────────────────────────────────────────
-// GOOGLE DRIVE SYNC
+// GOOGLE DRIVE SYNC — server-side OAuth with refresh token
 // ──────────────────────────────────────────────────────
 const GDRIVE_CLIENT_ID = '706161548380-19gntpoehss4jld2fa4ofogk1ucg589h.apps.googleusercontent.com';
 const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const GDRIVE_FILE_NAME = 'linguaflow.json';
 
-let gToken = null;
-let gTokenClient = null;
+let gToken = null;          // current access_token (in-memory only)
+let gTokenExpiry = 0;       // ms timestamp when access_token expires
 let gFileId = null;
 let gSaveTimer = null;
+let gRefreshTimer = null;
 
-// GIS is loaded eagerly in gdriveInit so the sign-in click
-// never needs to await anything — preserving the user-gesture chain.
-function initTokenClient(){
-  gTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GDRIVE_CLIENT_ID,
-    scope: GDRIVE_SCOPE,
-    callback: async(resp)=>{
-      if(resp.error || !resp.access_token){
-        console.error('OAuth error:', resp)
-        const errEl=document.getElementById('authError')
-        if(errEl){
-          errEl.style.display='block'
-          errEl.textContent='Помилка: '+(resp.error||'невідома')+'. Перевірте Authorized JavaScript origins у Google Console.'
-        }
-        setSyncBadge('error','Помилка входу: '+(resp.error||'?'))
-        document.getElementById('authOverlay').style.display='flex'
-        return
-      }
-      gToken = resp.access_token
-      localStorage.setItem('lf_signin','1')
-      document.getElementById('authOverlay').style.display='none'
-      setSyncBadge('syncing','Завантаження…')
-      await gdriveLoad()
-      renderLangs(); showPage('pgLangs')
-      setSyncBadge('','✓ Google Drive')
-      renderHdrR()
-    }
-  })
-}
-
-// Direct click handler — called from onclick, must stay synchronous
+// Redirect the whole page to Google's consent screen.
+// access_type=offline + prompt=consent guarantees we get a refresh_token
+// on the very first authorization.
 function gdriveSignIn(){
-  if(gTokenClient){
-    try{
-      // Happy path: client already initialized, call directly (no await = keeps user gesture)
-      gTokenClient.requestAccessToken({prompt:''})
-    }catch(err){
-      console.error('requestAccessToken threw:', err)
-      const errEl=document.getElementById('authError')
-      if(errEl){
-        errEl.style.display='block'
-        errEl.textContent='Браузер блокує вікно Google. Перевірте: чи дозволені попапи та сторонні cookies для accounts.google.com, чи вимкнено блокувальники реклами/трекерів для цього сайту.'
-      }
-    }
-    return
-  }
-  // Fallback: GIS not yet ready — load it now and retry
-  // We have to break the gesture here, but there's no other option
-  const btn = document.querySelector('.auth-btn')
-  if(btn) btn.textContent = '⏳ Завантаження…'
-  const s = document.createElement('script')
-  s.src = 'https://accounts.google.com/gsi/client'
-  s.onload = () => {
-    initTokenClient()
-    if(btn) btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg> Увійти через Google'
-    setSyncBadge('','Готово — натисніть знову')
-  }
-  s.onerror = () => {
-    if(btn) btn.textContent = 'Помилка — перевірте інтернет'
-    setSyncBadge('error','Не вдалось завантажити Google Auth')
-  }
-  document.head.appendChild(s)
+  const redirectUri = `${location.origin}/api/auth-callback`
+  const params = new URLSearchParams({
+    client_id: GDRIVE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GDRIVE_SCOPE,
+    access_type: 'offline',
+    prompt: 'consent',
+    include_granted_scopes: 'true',
+  })
+  location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
-function gdriveSignOut(){
-  if(gToken) google.accounts.oauth2.revoke(gToken, ()=>{})
-  gToken=null; gFileId=null; gTokenClient=null
-  localStorage.removeItem('lf_signin')
+async function gdriveSignOut(){
+  try{ await fetch('/api/logout', {method:'POST'}) }catch(e){}
+  gToken=null; gFileId=null; gTokenExpiry=0
+  clearTimeout(gRefreshTimer)
   DB={langs:[]}
   document.getElementById('authOverlay').style.display='flex'
-  // Re-init client for next login
-  if(window.google?.accounts?.oauth2) initTokenClient()
   renderHdrR()
+}
+
+// Ask our server for a fresh access_token using the httpOnly refresh cookie.
+// Returns true on success, false if there's no valid session (cookie missing/expired).
+async function gdriveSilentRefresh(){
+  try{
+    const r = await fetch('/api/refresh', {method:'POST'})
+    if(!r.ok) return false
+    const data = await r.json()
+    if(!data.access_token) return false
+    gToken = data.access_token
+    gTokenExpiry = Date.now() + (data.expires_in||3600)*1000
+    scheduleTokenRefresh()
+    return true
+  }catch(e){
+    console.error('gdriveSilentRefresh failed:', e)
+    return false
+  }
+}
+
+// Proactively refresh the access_token a bit before it expires,
+// so ongoing use never hits a 401.
+function scheduleTokenRefresh(){
+  clearTimeout(gRefreshTimer)
+  const msUntilExpiry = gTokenExpiry - Date.now()
+  const refreshIn = Math.max(msUntilExpiry - 5*60*1000, 30*1000) // 5 min early, min 30s
+  gRefreshTimer = setTimeout(async()=>{
+    const ok = await gdriveSilentRefresh()
+    if(!ok){
+      setSyncBadge('error','Сесія закінчилась')
+      document.getElementById('authOverlay').style.display='flex'
+      renderHdrR()
+    }
+  }, refreshIn)
 }
 
 function setSyncBadge(cls, text){
@@ -500,7 +486,15 @@ async function gdriveFetch(url, opts={}){
     return null
   }
   if(r.status===401){
-    console.warn('gdriveFetch 401 — token expired')
+    // Access token died early — try one silent refresh, then retry once.
+    console.warn('gdriveFetch 401 — trying silent refresh')
+    const ok = await gdriveSilentRefresh()
+    if(ok){
+      try{
+        r=await fetch(url,{...opts, headers:{...opts.headers,'Authorization':'Bearer '+gToken}})
+      }catch(e){ return null }
+      if(r.status!==401) return r
+    }
     setSyncBadge('error','Сесія закінчилась — увійдіть знову')
     gToken=null
     document.getElementById('authOverlay').style.display='flex'
@@ -585,30 +579,49 @@ async function gdriveInit(){
   // Load local cache immediately so UI is usable even before sign-in
   try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
 
-  // Load GIS eagerly (no user gesture needed yet)
-  await new Promise(resolve=>{
-    if(window.google?.accounts?.oauth2){resolve();return}
-    const s=document.createElement('script')
-    s.src='https://accounts.google.com/gsi/client'
-    s.onload=resolve; s.onerror=resolve
-    document.head.appendChild(s)
-  })
-
-  if(!window.google?.accounts?.oauth2){
-    setSyncBadge('error','Не вдалось завантажити Google Auth')
+  // Case 1: we just got redirected back from /api/auth-callback with
+  // an access_token in the URL hash.
+  const hash = new URLSearchParams(location.hash.slice(1))
+  if(hash.get('access_token')){
+    gToken = hash.get('access_token')
+    gTokenExpiry = Date.now() + (parseInt(hash.get('expires_in')||'3600'))*1000
+    history.replaceState(null,'',location.pathname+location.search) // strip hash
+    scheduleTokenRefresh()
+    document.getElementById('authOverlay').style.display='none'
+    setSyncBadge('syncing','Завантаження…')
+    await gdriveLoad()
+    renderLangs(); showPage('pgLangs')
+    setSyncBadge('','✓ Google Drive')
+    renderHdrR()
+    return
+  }
+  if(hash.get('auth_error')){
+    history.replaceState(null,'',location.pathname+location.search)
+    const errEl=document.getElementById('authError')
+    if(errEl){
+      errEl.style.display='block'
+      errEl.textContent='Помилка авторизації: '+hash.get('auth_error')
+    }
+    document.getElementById('authOverlay').style.display='flex'
     return
   }
 
-  // Init the token client now — before any click
-  initTokenClient()
-
-  const wasSignedIn = localStorage.getItem('lf_signin')
-  if(wasSignedIn){
-    const sub=document.getElementById('authSubText')
-    if(sub) sub.textContent='Ваша сесія закінчилась. Натисніть "Увійти" знову.'
+  // Case 2: normal page load — try silent refresh using the httpOnly cookie.
+  // No popup, no redirect, no user interaction needed.
+  setSyncBadge('syncing','Перевірка сесії…')
+  const ok = await gdriveSilentRefresh()
+  if(ok){
+    document.getElementById('authOverlay').style.display='none'
+    setSyncBadge('syncing','Завантаження…')
+    await gdriveLoad()
+    renderLangs(); showPage('pgLangs')
+    setSyncBadge('','✓ Google Drive')
+    renderHdrR()
+    return
   }
 
-  // Show the overlay now that GIS is loaded and button will work
+  // Case 3: no valid session — show the sign-in overlay.
+  setSyncBadge('','Локально')
   document.getElementById('authOverlay').style.display='flex'
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
