@@ -179,7 +179,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap;min-width:0;overflow:hidden}
 @media(max-width:520px){.bc{display:none}}
 
-/* ── sidebar ── */
+/* ── loading state ── */
+.loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text2);grid-column:1/-1}
+.loading-icon{font-size:34px;margin-bottom:14px;animation:loading-pulse 1.4s ease-in-out infinite}
+@keyframes loading-pulse{0%,100%{opacity:.5;transform:scale(.94)}50%{opacity:1;transform:scale(1)}}
+.loading-text{font-size:14px;color:var(--text2)}
+.loading-dots::after{content:'';animation:loading-dots 1.4s steps(4,end) infinite}
+@keyframes loading-dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}100%{content:''}}
 .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:none}
 .sidebar-overlay.open{display:block}
 .sidebar{position:fixed;top:0;left:0;height:100%;width:260px;max-width:82vw;background:var(--surface);border-right:.5px solid var(--border);z-index:401;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .22s ease;box-shadow:2px 0 24px rgba(0,0,0,.2)}
@@ -284,7 +290,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="page active" id="pgLangs">
     <div class="ptitle">Мої мови</div>
     <div class="psub">Оберіть мову для вивчення або додайте нову</div>
-    <div class="lgrid" id="langGrid"></div>
+    <div class="lgrid" id="langGrid">
+      <div class="loading-state">
+        <div class="loading-icon">📡</div>
+        <div class="loading-text">Завантаження<span class="loading-dots"></span></div>
+      </div>
+    </div>
   </div>
 
   <!-- TASKS -->
