@@ -750,6 +750,51 @@ function showPage(id){
   document.getElementById(id).classList.add('active')
   renderBC(); renderHdrR()
 }
+
+// ── History API integration ─────────────────────────
+// Each navigation level (langs / tasks / editor) gets pushed as a
+// browser history entry, so the Android back gesture / browser back
+// button steps back through the app instead of leaving the page.
+function historyState(){
+  return {lang:curLang, task:curTask}
+}
+function pushHistory(){
+  history.pushState(historyState(), '', location.pathname+location.search)
+}
+function applyState(state){
+  // Restore curLang/curTask from a history entry and re-render the
+  // matching page WITHOUT pushing a new history entry.
+  curLang = state?.lang ?? null
+  curTask = state?.task ?? null
+  if(curTask && curLang){
+    const lang=gl(curLang)
+    if(lang && gt(curLang,curTask)){
+      document.getElementById('eFlag').textContent=lang.flag
+      showPage('pgEditor')
+      curDir='A'
+      const task=gt(curLang,curTask)
+      const hasContent=(task.pA||'').trim()!=''||(task.pB||'').trim()!=''
+      curMode=hasContent?'practice':'edit'
+      loadEditor()
+      if(curMode==='practice') buildPractice()
+      return
+    }
+  }
+  if(curLang){
+    const lang=gl(curLang)
+    if(lang){
+      document.getElementById('tFlag').textContent=lang.flag
+      document.getElementById('tTitle').textContent=lang.name
+      showPage('pgTasks'); renderTasks()
+      return
+    }
+  }
+  curLang=null; curTask=null
+  showPage('pgLangs'); renderLangs()
+}
+window.addEventListener('popstate', e=>{
+  applyState(e.state)
+})
 function renderBC(){
   let h=''
   if(curLang){
@@ -815,10 +860,13 @@ function closeSidebar(){
   document.getElementById('sidebarOverlay').classList.remove('open')
 }
 function sidebarGoHome(){
-  closeSidebar(); goLangs()
+  closeSidebar()
+  curLang=null; curTask=null
+  showPage('pgLangs'); renderLangs()
+  pushHistory()
 }
 function sidebarGoFolders(){
-  closeSidebar(); goLangs()
+  sidebarGoHome()
 }
 function sidebarOpenTask(langId, taskId){
   closeSidebar()
@@ -850,8 +898,14 @@ function renderSidebarRecent(){
     </div>`
   ).join('')
 }
-function goLangs(){curLang=null;curTask=null;showPage('pgLangs');renderLangs()}
-function goTasks(){curTask=null;showPage('pgTasks');renderTasks()}
+function goLangs(){
+  if(curTask||curLang){ history.back(); return }
+  curLang=null;curTask=null;showPage('pgLangs');renderLangs()
+}
+function goTasks(){
+  if(curTask){ history.back(); return }
+  curTask=null;showPage('pgTasks');renderTasks()
+}
 
 // ──────────────────────────────────────────────────────
 // LANGS
@@ -877,6 +931,7 @@ function openLang(id){
   document.getElementById('tFlag').textContent=l.flag
   document.getElementById('tTitle').textContent=l.name
   showPage('pgTasks'); renderTasks()
+  pushHistory()
 }
 function addLangM(){
   editingLang=null
@@ -1104,6 +1159,7 @@ function openTask(id){
   showPage('pgEditor')
   loadEditor()
   if(curMode==='practice') buildPractice()
+  pushHistory()
 }
 
 // ──────────────────────────────────────────────────────
@@ -1563,6 +1619,10 @@ async function init(){
   await gdriveInit()
   renderLangs(); showPage('pgLangs')
   renderHdrR()
+  // Establish a base history entry for the langs page, so popstate
+  // has a defined state to return to (replaceState, not pushState —
+  // we don't want an extra entry before the user has navigated anywhere).
+  history.replaceState(historyState(), '', location.pathname+location.search)
 }
 // authOverlay (and other elements) are defined further down in the HTML,
 // after this <script> tag — wait until the whole document is parsed
