@@ -1,4 +1,4 @@
-const CACHE = 'mownyk-v1';
+const CACHE = 'mownyk-v2';
 const ASSETS = [
   '/',
   '/index.html',
