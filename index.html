@@ -1741,12 +1741,10 @@ function gemTransfer(){
   const task=gt(curLang,curTask)
   if(!task){toast('Завдання не вибрано','err');return}
 
-  // Direction A = first panel label, B = second
-  // text1 → panel A (current dir A), text2 → panel B
-  // But if current dir is B, swap
-  const isA=curDir==='A'
-  const htmlA=textToHtml(isA?text1:text2)
-  const htmlB=textToHtml(isA?text2:text1)
+  // Always: Текст 1 → Panel A, Текст 2 → Panel B — regardless of which
+  // direction happens to be open right now.
+  const htmlA=textToHtml(text1)
+  const htmlB=textToHtml(text2)
 
   task.pA=htmlA; task.pB=htmlB; save()
 
