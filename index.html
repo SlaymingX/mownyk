@@ -96,10 +96,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pdirl{font-size:13px;font-weight:700;color:var(--accent)}
 
 /* toolbar */
-.toolbar{display:flex;gap:4px;padding:7px 12px;border-bottom:.5px solid var(--border)}
+.toolbar{display:flex;gap:4px;padding:7px 12px;border-bottom:.5px solid var(--border);align-items:center;flex-wrap:wrap}
 .tb{padding:4px 8px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--text2);transition:background var(--tr),color var(--tr);line-height:1;min-width:28px;text-align:center}
 .tb:hover{background:var(--accent-light);color:var(--accent)}
 .tb b{font-weight:700}.tb i{font-style:italic}.tb u{text-decoration:underline}
+.toolbar-sep{width:.5px;height:18px;background:var(--border2);margin:0 2px}
+.tb-clear{font-size:12px;padding:5px 9px}
+.tb-clear:hover{background:var(--err-bg);color:var(--err)}
 
 /* editable area (edit mode) */
 .econtent{padding:16px;min-height:200px;outline:none;font-size:15px;line-height:1.85}
@@ -132,6 +135,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   padding:0;margin:0;
   vertical-align:baseline;
 }
+.tw-input::placeholder{color:var(--text);opacity:.38}
 
 /* state: answered correct */
 .tw.tw-ok{border-bottom-color:var(--ok);background:var(--ok-bg);border-radius:4px;cursor:default;color:var(--ok)}
@@ -362,6 +366,9 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
           <button class="tb" title="Жирний" onmousedown="e=>e.preventDefault()" onclick="fmt('bold')"><b>B</b></button>
           <button class="tb" title="Курсив"  onmousedown="e=>e.preventDefault()" onclick="fmt('italic')"><i>I</i></button>
           <button class="tb" title="Підкреслений" onmousedown="e=>e.preventDefault()" onclick="fmt('underline')"><u>U</u></button>
+          <span class="toolbar-sep"></span>
+          <button class="tb tb-clear" title="Очистити все форматування (жирний, курсив, підкреслення)" onclick="clearAllFormatting()">🧹 Формат</button>
+          <button class="tb tb-clear" title="Видалити весь текст з поля" onclick="clearPanelText()">🗑️ Очистити текст</button>
         </div>
         <div class="econtent" id="ec" contenteditable="true" spellcheck="false"
              oninput="savePanel()" onkeyup="savePanel()"></div>
@@ -1059,11 +1066,13 @@ function delLang(id){
 function renderTasks(){
   const lang=gl(curLang); let h=''
   ;(lang.tasks||[]).forEach(t=>{
+    const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
+    const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
     h+=`<div class="titem" onclick="openTask('${t.id}')">
       <div class="temi">${t.emoji||'📝'}</div>
       <div class="tinf">
         <div class="tname">${esc(t.name)}</div>
-        <div class="tmeta">${(t.pA||t.pB)?'Є вміст':'Порожнє'}</div>
+        <div class="tmeta">${meta}</div>
       </div>
       <div class="tact" onclick="event.stopPropagation()">
         <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
@@ -1075,6 +1084,13 @@ function renderTasks(){
   const list=document.getElementById('taskList')
   list.innerHTML=h
   parseEmoji(list)
+}
+// Ukrainian plural form for "слово" (word): 1 слово, 2-4 слова, 5+ слів
+function pluralizeWords(n){
+  const mod10=n%10, mod100=n%100
+  if(mod10===1 && mod100!==11) return 'слово'
+  if(mod10>=2 && mod10<=4 && (mod100<12||mod100>14)) return 'слова'
+  return 'слів'
 }
 function addTaskM(){
   editingTask=null
@@ -1313,6 +1329,31 @@ function fmt(cmd){
   savePanel()
 }
 
+// Completely empties the current panel's text (with confirmation, since
+// this is destructive and can't be undone via the app itself).
+function clearPanelText(){
+  const ec=document.getElementById('ec')
+  if(!ec.textContent.trim()){ toast('Поле вже порожнє','ok'); return }
+  cfm('Видалити весь текст з цього поля? Цю дію не можна скасувати.', ()=>{
+    ec.innerHTML=''
+    savePanel()
+    toast('Текст видалено','ok')
+  })
+}
+
+// Strips bold/italic/underline formatting from the panel's content,
+// keeping the plain text intact. Useful when re-marking trigger words
+// from scratch without retyping everything.
+function clearAllFormatting(){
+  const ec=document.getElementById('ec')
+  const plain=ec.textContent
+  if(!plain.trim()){ toast('Поле порожнє','err'); return }
+  // Rebuild as plain text, preserving line breaks as <br>.
+  ec.innerText=plain
+  savePanel()
+  toast('Форматування знято','ok')
+}
+
 // ──────────────────────────────────────────────────────
 // PRACTICE — core logic
 //
@@ -1355,19 +1396,41 @@ function extractBold(html){
 function buildPracFrag(html, onClickFn){
   const d=document.createElement('div'); d.innerHTML=html
   let idx=0
+  let precedingText='' // accumulates plain text seen so far, across the whole fragment
+  function isSentenceStart(text){
+    // A trailing newline (from <br>/<p>/<div> block boundaries) always
+    // counts as a sentence start, even though it's whitespace — check
+    // for it before trimming, since trimming would otherwise eat it.
+    if(/\n[\s"'«»()\u00A0]*$/.test(text)) return true
+    const trimmed=text.replace(/[\s"'«»()\u00A0]+$/,'')
+    if(trimmed==='') return true // nothing before it (start of text / start of a block)
+    const lastChar=trimmed[trimmed.length-1]
+    return lastChar==='.'||lastChar==='!'||lastChar==='?'||lastChar===':'
+  }
   function walk(n){
+    if(n.nodeType===Node.TEXT_NODE){
+      precedingText+=n.textContent
+      return
+    }
     if(n.nodeType===Node.ELEMENT_NODE){
       const tag=n.tagName
       const fw=n.style&&n.style.fontWeight
+      // Block-level elements (line breaks, paragraphs, divs) act like a
+      // sentence boundary even without punctuation.
+      if(tag==='BR'||tag==='P'||tag==='DIV'){
+        precedingText+='\n'
+      }
       if(tag==='B'||tag==='STRONG'||(fw&&(fw==='bold'||fw==='700'))){
         const tw=document.createElement('span')
         tw.className='tw'
         tw.dataset.idx=idx
         tw.dataset.orig=n.textContent
+        tw.dataset.sentenceStart=isSentenceStart(precedingText)?'1':'0'
         tw.textContent=n.textContent
         tw.addEventListener('mousedown',function(e){e.preventDefault()}) // prevent focus steal
         tw.addEventListener('click',function(e){e.stopPropagation();onClickFn(parseInt(this.dataset.idx),this)})
         n.parentNode.replaceChild(tw,n)
+        precedingText+=n.textContent
         idx++; return
       }
       for(const c of Array.from(n.childNodes)) walk(c)
@@ -1401,7 +1464,8 @@ function buildPractice(){
       origText: allTw[i]?allTw[i].dataset.orig:'',
       expected: oppWords[i]||'',
       userAnswer:'',
-      status:'none'
+      status:'none',
+      sentenceStart: allTw[i]?allTw[i].dataset.sentenceStart==='1':false
     })
   }
 
@@ -1489,12 +1553,12 @@ function openInput(idx, twEl){
   const inp=document.createElement('input')
   inp.type='text'
   inp.className='tw-input'
-  inp.autocapitalize='none'
+  inp.autocapitalize=pWords[idx].sentenceStart?'sentences':'none'
   inp.autocomplete='off'
   inp.autocorrect='off'
   inp.spellcheck=false
   inp.value=saved
-  inp.placeholder='…'
+  inp.placeholder=pWords[idx].origText
   // auto-size
   inp.style.width=Math.max(50, (saved.length||pWords[idx].origText.length)*11+20)+'px'
   inp.addEventListener('input',function(){
