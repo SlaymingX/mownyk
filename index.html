@@ -6,7 +6,8 @@
 <title>Мовник</title>
 <meta name="application-name" content="Mownyk">
 <meta name="description" content="Мовник — застосунок для вивчення мов">
-<meta name="theme-color" content="#4a3fc0">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#242428" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -35,8 +36,6 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.6}
 
 /* ── header ── */
-.hdr{background:var(--surface);border-bottom:.5px solid var(--border);padding:0 20px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
-.logo{font-size:18px;font-weight:700;color:var(--accent);flex-shrink:0}
 .bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap}
 .bc-a{cursor:pointer;color:var(--accent)}.bc-a:hover{text-decoration:underline}
 .bc-s{color:var(--text3)}.bc-c{font-weight:500}
@@ -176,7 +175,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
 .hdr{background:var(--surface);border-bottom:.5px solid var(--border);padding:0 14px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
 .hamburger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:none;background:transparent;cursor:pointer;color:var(--text);font-size:18px;flex-shrink:0;transition:background var(--tr)}
 .hamburger:hover{background:var(--surface2)}
-.hdr-favicon{width:26px;height:26px;border-radius:6px;flex-shrink:0;object-fit:cover}
+.hdr-favicon{width:26px;height:26px;border-radius:6px;object-fit:cover;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
 .bc{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);flex-wrap:wrap;min-width:0;overflow:hidden}
 @media(max-width:520px){.bc{display:none}}
 
@@ -447,7 +446,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       <label class="fl">Emoji</label>
       <div class="emoji-field-row">
         <div class="emoji-preview-btn" id="tEmoPreview">📝</div>
-        <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji (pen, heart, fire…)" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onfocus="showEmojiPanel()">
+        <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji (pen, heart, fire…)" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onclick="showEmojiPanel()">
       </div>
       <div class="emoji-picker-panel" id="emojiPanel" style="display:none">
         <div class="emoji-grid" id="emojiGrid"></div>
@@ -1209,8 +1208,12 @@ function pickEmoji(emoji){
   document.getElementById('tEmoSearch').value=''
   document.getElementById('emojiPanel').style.display='none'
 }
-// Close emoji panel when clicking outside it
-document.addEventListener('click', e=>{
+// Close emoji panel when clicking outside it.
+// Uses mousedown (not click) — on desktop, click fires on mouseup, which
+// was racing with the input's own onclick-to-open handler and causing
+// the panel to flash open then immediately close. mousedown fires first
+// and consistently, before any open/close toggle from the same press.
+document.addEventListener('mousedown', e=>{
   const panel=document.getElementById('emojiPanel')
   const row=document.querySelector('.emoji-field-row')
   if(panel && panel.style.display==='block' && row && !row.contains(e.target) && !panel.contains(e.target)){
@@ -1446,6 +1449,25 @@ function showTriggerTable(){
 }
 
 // ── tw click handler ──────────────────────────────────
+// After pressing Enter, jump straight to the next unanswered trigger
+// word (status === 'none'), so the user can keep typing translations
+// one after another without reaching for the mouse. Wraps around to
+// the start if the end of the list is reached, and stops once every
+// word already has a status (answered or in the middle of checking).
+function openNextTrigger(fromIdx){
+  const total=pWords.length
+  if(total===0) return
+  for(let step=1; step<=total; step++){
+    const idx=(fromIdx+step)%total
+    if(pWords[idx] && pWords[idx].status==='none'){
+      const twEl=document.querySelector(`.tw[data-idx="${idx}"]`)
+      if(twEl){ handleTwClick(idx, twEl) }
+      return
+    }
+  }
+  // No unanswered words left — nothing to open.
+}
+
 function handleTwClick(idx, twEl){
   if(pWords[idx].status!=='none') return // already checked
 
@@ -1479,7 +1501,11 @@ function openInput(idx, twEl){
     this.style.width=Math.max(50,this.value.length*11+20)+'px'
   })
   inp.addEventListener('keydown',function(e){
-    if(e.key==='Enter'){e.preventDefault();closeOpenInput(true)}
+    if(e.key==='Enter'){
+      e.preventDefault()
+      closeOpenInput(true)
+      openNextTrigger(idx)
+    }
     if(e.key==='Escape'){e.preventDefault();closeOpenInput(false)}
   })
   inp.addEventListener('mousedown',function(e){e.stopPropagation()})
