@@ -70,8 +70,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── tasks ── */
 .th{display:flex;align-items:center;gap:11px;margin-bottom:22px}
 .thfl{font-size:26px}.tlist{display:flex;flex-direction:column;gap:9px}
-.titem{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color var(--tr),transform var(--tr)}
-.titem:hover{border-color:var(--accent);transform:translateX(3px)}
+
+/* Swipe container */
+.tswipe-wrap{position:relative;border-radius:var(--rl);overflow:hidden;isolation:isolate}
+.tswipe-bg{position:absolute;inset:0;display:flex;border-radius:var(--rl)}
+.tswipe-left{flex:0 0 80px;background:#5c6bc0;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;border-radius:var(--rl) 0 0 var(--rl)}
+.tswipe-right{flex:0 0 80px;background:var(--err);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;border-radius:0 var(--rl) var(--rl) 0;margin-left:auto}
+
+.titem{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;
+  transition:transform .25s cubic-bezier(.25,.46,.45,.94),border-color var(--tr);
+  position:relative;z-index:1;will-change:transform;touch-action:pan-y}
+.titem:hover{border-color:var(--accent)}
+.titem.swiping{transition:none}
+
 .temi{font-size:20px;width:34px;text-align:center;flex-shrink:0}
 .tinf{flex:1;min-width:0}.tname{font-size:14px;font-weight:500}.tmeta{font-size:11px;color:var(--text3);margin-top:1px}
 .tact{display:none;gap:4px}.titem:hover .tact{display:flex}
@@ -1070,15 +1081,21 @@ function renderTasks(){
   ;(lang.tasks||[]).forEach(t=>{
     const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
     const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
-    h+=`<div class="titem" onclick="openTask('${t.id}')">
-      <div class="temi">${t.emoji||'📝'}</div>
-      <div class="tinf">
-        <div class="tname">${esc(t.name)}</div>
-        <div class="tmeta">${meta}</div>
+    h+=`<div class="tswipe-wrap" data-id="${t.id}">
+      <div class="tswipe-bg">
+        <div class="tswipe-left">✏️</div>
+        <div class="tswipe-right">🗑️</div>
       </div>
-      <div class="tact" onclick="event.stopPropagation()">
-        <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
-        <button class="btn btn-ico btn-sm btn-d" onclick="delTask('${t.id}')">🗑️</button>
+      <div class="titem" onclick="handleTaskClick(event,'${t.id}')">
+        <div class="temi">${t.emoji||'📝'}</div>
+        <div class="tinf">
+          <div class="tname">${esc(t.name)}</div>
+          <div class="tmeta">${meta}</div>
+        </div>
+        <div class="tact" onclick="event.stopPropagation()">
+          <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
+          <button class="btn btn-ico btn-sm btn-d" onclick="delTask('${t.id}')">🗑️</button>
+        </div>
       </div>
     </div>`
   })
@@ -1086,8 +1103,105 @@ function renderTasks(){
   const list=document.getElementById('taskList')
   list.innerHTML=h
   parseEmoji(list)
+  initSwipeItems()
 }
-// Ukrainian plural form for "слово" (word): 1 слово, 2-4 слова, 5+ слів
+// ──────────────────────────────────────────────────────
+// SWIPE ACTIONS (task list)
+// Swipe left  → DELETE (red zone on the right)
+// Swipe right → EDIT   (blue zone on the left)
+// ──────────────────────────────────────────────────────
+const SWIPE_THRESHOLD = 60   // px to trigger the action
+const SWIPE_MAX      = 80    // max px the card can slide before snap
+
+let _activeSwipeItem = null  // currently open swipe item (if any)
+
+function initSwipeItems(){
+  document.querySelectorAll('.tswipe-wrap').forEach(wrap=>{
+    const card = wrap.querySelector('.titem')
+    if(!card || card._swipeInit) return
+    card._swipeInit = true
+    let startX=0, startY=0, curX=0, dragging=false, moved=false
+
+    card.addEventListener('touchstart', e=>{
+      if(e.touches.length!==1) return
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      curX = 0
+      dragging = true
+      moved = false
+      card.classList.add('swiping')
+      // Close any other open swipe
+      if(_activeSwipeItem && _activeSwipeItem !== card) snapBack(_activeSwipeItem)
+    }, {passive:true})
+
+    card.addEventListener('touchmove', e=>{
+      if(!dragging) return
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+      if(!moved && Math.abs(dy) > Math.abs(dx)){ dragging=false; card.classList.remove('swiping'); return }
+      moved = true
+      curX = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, dx))
+      card.style.transform = `translateX(${curX}px)`
+    }, {passive:true})
+
+    card.addEventListener('touchend', ()=>{
+      if(!dragging){ card.classList.remove('swiping'); return }
+      dragging = false
+      card.classList.remove('swiping')
+      if(curX < -SWIPE_THRESHOLD){
+        // Swiped left — DELETE
+        snapTo(card, -SWIPE_MAX)
+        _activeSwipeItem = card
+        setTimeout(()=>{
+          const id = wrap.dataset.id
+          snapBack(card)
+          delTask(id)
+        }, 200)
+      } else if(curX > SWIPE_THRESHOLD){
+        // Swiped right — EDIT
+        snapTo(card, SWIPE_MAX)
+        _activeSwipeItem = card
+        setTimeout(()=>{
+          const id = wrap.dataset.id
+          snapBack(card)
+          editTaskM(id)
+        }, 200)
+      } else {
+        snapBack(card)
+      }
+    })
+  })
+
+  // Close open swipe when tapping elsewhere
+  document.addEventListener('touchstart', e=>{
+    if(_activeSwipeItem && !_activeSwipeItem.closest('.tswipe-wrap')?.contains(e.target)){
+      snapBack(_activeSwipeItem)
+    }
+  }, {passive:true})
+}
+
+function snapBack(card){
+  if(!card) return
+  card.classList.remove('swiping')
+  card.style.transition='transform .22s cubic-bezier(.25,.46,.45,.94)'
+  card.style.transform='translateX(0)'
+  setTimeout(()=>{ card.style.transition=''; _activeSwipeItem=null }, 230)
+}
+function snapTo(card, x){
+  card.style.transition='transform .18s cubic-bezier(.25,.46,.45,.94)'
+  card.style.transform=`translateX(${x}px)`
+}
+
+// handleTaskClick suppresses the open action when the user just finished
+// swiping so a tap during snap-back doesn't accidentally open the task.
+function handleTaskClick(e, id){
+  if(_activeSwipeItem){
+    snapBack(_activeSwipeItem)
+    e.stopPropagation()
+    return
+  }
+  openTask(id)
+}
 function pluralizeWords(n){
   const mod10=n%10, mod100=n%100
   if(mod10===1 && mod100!==11) return 'слово'
