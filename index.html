@@ -68,7 +68,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ladd:hover{border-color:var(--accent);color:var(--accent)}.ladd .plus{font-size:26px;font-weight:300}
 
 /* ── tasks ── */
-.th{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+.th{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+/* sort bar */
+.sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.sort-btn{padding:5px 11px;border-radius:20px;border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--tr);display:flex;align-items:center;gap:4px}
+.sort-btn:hover{background:var(--surface2);color:var(--text)}
+.sort-btn.active{background:var(--accent);color:#fff;border-color:transparent}
+.sort-arrow{font-size:10px;opacity:.8}
 .thfl{font-size:26px}.tlist{display:flex;flex-direction:column;gap:9px}
 .titem{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color var(--tr),transform var(--tr)}
 .titem:hover{border-color:var(--accent);transform:translateX(3px)}
@@ -338,6 +344,11 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       </div>
     </div>
     <div class="tlist" id="taskList"></div>
+    <div class="sort-bar" id="sortBar" style="display:none">
+      <button class="sort-btn" id="sortDate" onclick="setSort('date')">📅 Дата <span class="sort-arrow" id="sortDateArrow"></span></button>
+      <button class="sort-btn" id="sortWords" onclick="setSort('words')">🔢 Слова <span class="sort-arrow" id="sortWordsArrow"></span></button>
+      <button class="sort-btn" id="sortAbc" onclick="setSort('abc')">🔤 Абетка <span class="sort-arrow" id="sortAbcArrow"></span></button>
+    </div>
   </div>
 
   <!-- EDITOR -->
@@ -1065,9 +1076,62 @@ function delLang(id){
 // ──────────────────────────────────────────────────────
 // TASKS
 // ──────────────────────────────────────────────────────
+let taskSort = { key: 'date', asc: true }
+
+function setSort(key){
+  if(taskSort.key === key){
+    taskSort.asc = !taskSort.asc
+  } else {
+    taskSort.key = key
+    taskSort.asc = true
+  }
+  renderTasks()
+}
+
+function getSortedTasks(tasks){
+  const arr = [...(tasks||[])]
+  const { key, asc } = taskSort
+  arr.sort((a, b) => {
+    let va, vb
+    if(key === 'date'){
+      va = a.id || ''; vb = b.id || ''  // uid() is timestamp-based, so lexical sort = date sort
+    } else if(key === 'words'){
+      va = Math.max(extractBold(a.pA||'').length, extractBold(a.pB||'').length)
+      vb = Math.max(extractBold(b.pA||'').length, extractBold(b.pB||'').length)
+    } else { // abc
+      va = (a.name||'').toLowerCase()
+      vb = (b.name||'').toLowerCase()
+    }
+    if(va < vb) return asc ? -1 : 1
+    if(va > vb) return asc ? 1 : -1
+    return 0
+  })
+  return arr
+}
+
+function renderSortBar(){
+  const bar = document.getElementById('sortBar')
+  if(!bar) return
+  const lang = gl(curLang)
+  const hasTasks = (lang?.tasks||[]).length > 0
+  bar.style.display = hasTasks ? 'flex' : 'none'
+
+  const keys = ['date','words','abc']
+  const ids  = ['sortDate','sortWords','sortAbc']
+  keys.forEach((k, i) => {
+    const btn = document.getElementById(ids[i])
+    const arr = document.getElementById(ids[i]+'Arrow')
+    if(!btn) return
+    const isActive = taskSort.key === k
+    btn.classList.toggle('active', isActive)
+    arr.textContent = isActive ? (taskSort.asc ? '↑' : '↓') : ''
+  })
+}
+
 function renderTasks(){
   const lang=gl(curLang); let h=''
-  ;(lang.tasks||[]).forEach(t=>{
+  const sorted = getSortedTasks(lang?.tasks)
+  sorted.forEach(t=>{
     const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
     const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
     h+=`<div class="titem" onclick="openTask('${t.id}')">
@@ -1086,6 +1150,7 @@ function renderTasks(){
   const list=document.getElementById('taskList')
   list.innerHTML=h
   parseEmoji(list)
+  renderSortBar()
 }
 // Ukrainian plural form for "слово" (word): 1 слово, 2-4 слова, 5+ слів
 function pluralizeWords(n){
