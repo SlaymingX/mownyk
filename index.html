@@ -81,6 +81,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .temi{font-size:20px;width:34px;text-align:center;flex-shrink:0}
 .tinf{flex:1;min-width:0}.tname{font-size:14px;font-weight:500}.tmeta{font-size:11px;color:var(--text3);margin-top:1px}
 .tact{display:none;gap:4px}.titem:hover .tact{display:flex}
+.titem-hidden{opacity:.45}
+.titem-hidden:hover{opacity:.7}
+.titem-hidden .tact{display:flex}
 .tadd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr)}
 .tadd:hover{border-color:var(--accent);color:var(--accent)}
 
@@ -344,6 +347,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       <button class="sort-btn" id="sortDate" onclick="setSort('date')">📅 Дата <span class="sort-arrow" id="sortDateArrow"></span></button>
       <button class="sort-btn" id="sortWords" onclick="setSort('words')">🔢 Слова <span class="sort-arrow" id="sortWordsArrow"></span></button>
       <button class="sort-btn" id="sortAbc" onclick="setSort('abc')">🔤 Абетка <span class="sort-arrow" id="sortAbcArrow"></span></button>
+      <button class="sort-btn" id="sortHidden" onclick="toggleShowHidden()" style="margin-left:auto">👁️ Сховані</button>
     </div>
     <div class="tlist" id="taskList"></div>
   </div>
@@ -1074,6 +1078,7 @@ function delLang(id){
 // TASKS
 // ──────────────────────────────────────────────────────
 let taskSort = { key: 'date', asc: true }
+let showHiddenTasks = false
 
 function setSort(key){
   if(taskSort.key === key){
@@ -1082,6 +1087,20 @@ function setSort(key){
     taskSort.key = key
     taskSort.asc = true
   }
+  renderTasks()
+}
+
+function toggleTaskHidden(id){
+  const t=gt(curLang,id)
+  if(!t) return
+  t.hidden = !t.hidden
+  save()
+  renderTasks()
+  toast(t.hidden?'Завдання сховано':'Завдання знову видиме','ok')
+}
+
+function toggleShowHidden(){
+  showHiddenTasks = !showHiddenTasks
   renderTasks()
 }
 
@@ -1110,7 +1129,8 @@ function renderSortBar(){
   const bar = document.getElementById('sortBar')
   if(!bar) return
   const lang = gl(curLang)
-  const hasTasks = (lang?.tasks||[]).length > 0
+  const allTasks = lang?.tasks||[]
+  const hasTasks = allTasks.length > 0
   bar.style.display = hasTasks ? 'flex' : 'none'
 
   const keys = ['date','words','abc']
@@ -1123,21 +1143,32 @@ function renderSortBar(){
     btn.classList.toggle('active', isActive)
     arr.textContent = isActive ? (taskSort.asc ? '↑' : '↓') : ''
   })
+
+  const hiddenBtn = document.getElementById('sortHidden')
+  if(hiddenBtn){
+    const hiddenCount = allTasks.filter(t=>t.hidden).length
+    hiddenBtn.style.display = hiddenCount > 0 ? 'flex' : 'none'
+    hiddenBtn.classList.toggle('active', showHiddenTasks)
+    hiddenBtn.textContent = showHiddenTasks ? `🙈 Сховати (${hiddenCount})` : `👁️ Показати сховані (${hiddenCount})`
+  }
 }
 
 function renderTasks(){
   const lang=gl(curLang); let h=''
   const sorted = getSortedTasks(lang?.tasks)
-  sorted.forEach(t=>{
+  const visible = showHiddenTasks ? sorted : sorted.filter(t=>!t.hidden)
+  visible.forEach(t=>{
     const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
     const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
-    h+=`<div class="titem" onclick="openTask('${t.id}')">
+    const hiddenClass = t.hidden ? ' titem-hidden' : ''
+    h+=`<div class="titem${hiddenClass}" onclick="openTask('${t.id}')">
       <div class="temi">${t.emoji||'📝'}</div>
       <div class="tinf">
         <div class="tname">${esc(t.name)}</div>
         <div class="tmeta">${meta}</div>
       </div>
       <div class="tact" onclick="event.stopPropagation()">
+        <button class="btn btn-ico btn-sm" title="${t.hidden?'Показати':'Сховати'}" onclick="toggleTaskHidden('${t.id}')">${t.hidden?'🙈':'👁️'}</button>
         <button class="btn btn-ico btn-sm" onclick="editTaskM('${t.id}')">✏️</button>
         <button class="btn btn-ico btn-sm btn-d" onclick="delTask('${t.id}')">🗑️</button>
       </div>
