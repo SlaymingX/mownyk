@@ -75,8 +75,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dict-row{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px}
 .dict-row-words{flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .dict-word{font-size:14px;font-weight:600}
-.dict-word.dict-word-user{color:var(--err)}
-.dict-word.dict-word-correct{color:var(--ok)}
+.dict-word-a{color:var(--text)}
+.dict-word-b{color:var(--accent)}
 .dict-arrow{color:var(--text3);font-size:13px}
 .dict-row-meta{font-size:11px;color:var(--text3);margin-top:3px;width:100%}
 .dict-row-actions{display:flex;gap:4px;flex-shrink:0}
@@ -463,11 +463,11 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
   <div class="md" style="max-width:420px">
     <div class="mdtitle">Редагувати пару слів</div>
     <div class="fg">
-      <label class="fl">Слово (твій варіант)</label>
+      <label class="fl">Слово (мова 1)</label>
       <input class="fi" id="dictEditUser" placeholder="Слово">
     </div>
     <div class="fg">
-      <label class="fl">Правильний переклад</label>
+      <label class="fl">Переклад (мова 2)</label>
       <input class="fi" id="dictEditCorrect" placeholder="Переклад">
     </div>
     <div class="mdact">
@@ -1220,9 +1220,9 @@ function renderDictionary(){
   list.innerHTML = sorted.map(d => `
     <div class="dict-row" data-id="${d.id}">
       <div class="dict-row-words">
-        <span class="dict-word dict-word-user">${esc(d.userWord)}</span>
-        <span class="dict-arrow">→</span>
-        <span class="dict-word dict-word-correct">${esc(d.correctWord)}</span>
+        <span class="dict-word dict-word-a">${esc(d.wordA)}</span>
+        <span class="dict-arrow">↔</span>
+        <span class="dict-word dict-word-b">${esc(d.wordB)}</span>
         <div class="dict-row-meta">${d.langFlag||''} ${esc(d.langName||'')}${d.taskName?' · '+esc(d.taskName):''}</div>
       </div>
       <div class="dict-row-actions">
@@ -1262,19 +1262,19 @@ function editDictEntry(id){
   const entry = DB.dictionary.find(d=>d.id===id)
   if(!entry) return
   editingDictId = id
-  document.getElementById('dictEditUser').value = entry.userWord
-  document.getElementById('dictEditCorrect').value = entry.correctWord
+  document.getElementById('dictEditUser').value = entry.wordA
+  document.getElementById('dictEditCorrect').value = entry.wordB
   openMo('moDictEdit')
 }
 
 function saveDictEdit(){
   const entry = DB.dictionary.find(d=>d.id===editingDictId)
   if(!entry) return
-  const userWord = document.getElementById('dictEditUser').value.trim()
-  const correctWord = document.getElementById('dictEditCorrect').value.trim()
-  if(!userWord || !correctWord){ toast('Заповніть обидва поля','err'); return }
-  entry.userWord = userWord
-  entry.correctWord = correctWord
+  const wordA = document.getElementById('dictEditUser').value.trim()
+  const wordB = document.getElementById('dictEditCorrect').value.trim()
+  if(!wordA || !wordB){ toast('Заповніть обидва поля','err'); return }
+  entry.wordA = wordA
+  entry.wordB = wordB
   save()
   closeMo('moDictEdit')
   renderDictionary()
@@ -1284,7 +1284,7 @@ function saveDictEdit(){
 function delDictEntry(id){
   const entry = DB.dictionary.find(d=>d.id===id)
   if(!entry) return
-  cfm(`Видалити пару "${entry.userWord} → ${entry.correctWord}" зі словника?`, ()=>{
+  cfm(`Видалити пару "${entry.wordA} ↔ ${entry.wordB}" зі словника?`, ()=>{
     DB.dictionary = DB.dictionary.filter(d=>d.id!==id)
     save()
     renderDictionary()
@@ -1895,12 +1895,12 @@ document.addEventListener('click', e=>{
   if(_dictPopupEl && !_dictPopupEl.contains(e.target)) closeDictPopup()
 })
 
-function openDictAddPopup(anchorEl, userWord, correctWord){
+function openDictAddPopup(anchorEl, wordA, wordB){
   closeDictPopup()
   const lang = gl(curLang)
   const task = gt(curLang, curTask)
   const already = DB.dictionary.some(d =>
-    d.langId===curLang && stripAccents(d.userWord)===stripAccents(userWord) && stripAccents(d.correctWord)===stripAccents(correctWord)
+    d.langId===curLang && stripAccents(d.wordA)===stripAccents(wordA) && stripAccents(d.wordB)===stripAccents(wordB)
   )
   const popup = document.createElement('div')
   popup.className = 'tw-dict-popup'
@@ -1910,7 +1910,7 @@ function openDictAddPopup(anchorEl, userWord, correctWord){
   btn.onclick = ev => {
     ev.stopPropagation()
     if(already){ closeDictPopup(); return }
-    addToDictionary(userWord, correctWord)
+    addToDictionary(wordA, wordB)
     btn.innerHTML = '✓ Додано'
     btn.classList.add('added')
     setTimeout(closeDictPopup, 700)
@@ -1920,7 +1920,7 @@ function openDictAddPopup(anchorEl, userWord, correctWord){
   _dictPopupEl = popup
 }
 
-function addToDictionary(userWord, correctWord){
+function addToDictionary(wordA, wordB){
   const lang = gl(curLang)
   const task = gt(curLang, curTask)
   DB.dictionary.push({
@@ -1929,8 +1929,8 @@ function addToDictionary(userWord, correctWord){
     langFlag: lang?.flag || '',
     langName: lang?.name || '',
     taskName: task?.name || '',
-    userWord: userWord,
-    correctWord: correctWord,
+    wordA: wordA,
+    wordB: wordB,
     createdAt: Date.now()
   })
   save()
@@ -1960,7 +1960,7 @@ function checkAll(){
       const h=document.createElement('span'); h.className='tw-hint'; h.textContent=exp; twEl.appendChild(h)
       h.addEventListener('click', ev=>{
         ev.stopPropagation()
-        openDictAddPopup(h, user, exp)
+        openDictAddPopup(h, w.origText, exp)
       })
       w.status='err'; err++
     }
