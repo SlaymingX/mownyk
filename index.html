@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#242428" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f7f6f3" media="(display-mode: standalone) and (prefers-color-scheme: light)">
-<meta name="theme-color" content="#18181a" media="(display-mode: standalone) and (prefers-color-scheme: dark)">
+<meta name="theme-color" content="#242428" media="(display-mode: standalone) and (prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -75,7 +75,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sort-btn:hover{background:var(--surface2);color:var(--text)}
 .sort-btn.active{background:var(--accent);color:#fff;border-color:transparent}
 .sort-arrow{font-size:10px;opacity:.8}
-.thfl{font-size:26px}.tlist{display:flex;flex-direction:column;gap:9px}
+.thfl{font-size:26px;display:flex;align-items:center}.tlist{display:flex;flex-direction:column;gap:9px}
 .titem{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color var(--tr),transform var(--tr)}
 .titem:hover{border-color:var(--accent);transform:translateX(3px)}
 .temi{font-size:20px;width:34px;text-align:center;flex-shrink:0}
@@ -338,17 +338,14 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
   <div class="page" id="pgTasks">
     <div class="th">
       <div class="thfl" id="tFlag"></div>
-      <div>
-        <div class="ptitle" id="tTitle"></div>
-        <div class="psub" style="margin:0">Список завдань</div>
-      </div>
+      <div class="ptitle" id="tTitle" style="margin-bottom:0"></div>
     </div>
-    <div class="tlist" id="taskList"></div>
     <div class="sort-bar" id="sortBar" style="display:none">
       <button class="sort-btn" id="sortDate" onclick="setSort('date')">📅 Дата <span class="sort-arrow" id="sortDateArrow"></span></button>
       <button class="sort-btn" id="sortWords" onclick="setSort('words')">🔢 Слова <span class="sort-arrow" id="sortWordsArrow"></span></button>
       <button class="sort-btn" id="sortAbc" onclick="setSort('abc')">🔤 Абетка <span class="sort-arrow" id="sortAbcArrow"></span></button>
     </div>
+    <div class="tlist" id="taskList"></div>
   </div>
 
   <!-- EDITOR -->
