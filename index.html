@@ -63,7 +63,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lcard:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(74,63,192,.12);transform:translateY(-2px)}
 .lflag{font-size:34px;line-height:1;margin-bottom:8px}
 .lname{font-size:15px;font-weight:600;margin-bottom:1px}.lnative{font-size:11px;color:var(--text3)}
-.lact{position:absolute;top:9px;right:9px;display:none;gap:4px}.lcard:hover .lact{display:flex}
+.lact{position:absolute;top:9px;right:9px;display:none;gap:4px;pointer-events:none}
+@media (hover: hover) and (pointer: fine){
+  .lcard:hover .lact{display:flex;pointer-events:auto}
+}
+@media (hover: none), (pointer: coarse){
+  .lact{display:flex;pointer-events:auto;background:var(--surface);border-radius:8px;padding:2px}
+}
 .ladd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr);min-height:106px}
 .ladd:hover{border-color:var(--accent);color:var(--accent)}.ladd .plus{font-size:26px;font-weight:300}
 
@@ -96,10 +102,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .titem:hover{border-color:var(--accent);transform:translateX(3px)}
 .temi{font-size:20px;width:34px;text-align:center;flex-shrink:0}
 .tinf{flex:1;min-width:0}.tname{font-size:14px;font-weight:500}.tmeta{font-size:11px;color:var(--text3);margin-top:1px}
-.tact{display:none;gap:4px}.titem:hover .tact{display:flex}
+.tact{display:none;gap:4px;pointer-events:none}
+@media (hover: hover) and (pointer: fine){
+  .titem:hover .tact{display:flex;pointer-events:auto}
+}
+@media (hover: none), (pointer: coarse){
+  .tact{display:flex;pointer-events:auto}
+}
 .titem-hidden{opacity:.45}
 .titem-hidden:hover{opacity:.7}
-.titem-hidden .tact{display:flex}
+.titem-hidden .tact{display:flex;pointer-events:auto}
 .tadd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr)}
 .tadd:hover{border-color:var(--accent);color:var(--accent)}
 
