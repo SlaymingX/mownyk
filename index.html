@@ -67,6 +67,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ladd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr);min-height:106px}
 .ladd:hover{border-color:var(--accent);color:var(--accent)}.ladd .plus{font-size:26px;font-weight:300}
 
+/* ── dictionary ── */
+.dict-filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.dict-filter-chip{padding:5px 11px;border-radius:20px;border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--tr);display:flex;align-items:center;gap:5px}
+.dict-filter-chip:hover{background:var(--surface2);color:var(--text)}
+.dict-filter-chip.active{background:var(--accent);color:#fff;border-color:transparent}
+.dict-row{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.dict-row-words{flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dict-word{font-size:14px;font-weight:600}
+.dict-word.dict-word-user{color:var(--err)}
+.dict-word.dict-word-correct{color:var(--ok)}
+.dict-arrow{color:var(--text3);font-size:13px}
+.dict-row-meta{font-size:11px;color:var(--text3);margin-top:3px;width:100%}
+.dict-row-actions{display:flex;gap:4px;flex-shrink:0}
+.dict-empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.dict-empty-icon{font-size:36px;margin-bottom:10px}
+
 /* ── tasks ── */
 .th{display:flex;align-items:center;gap:11px;margin-bottom:14px}
 /* sort bar */
@@ -155,7 +171,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tw.tw-err{border-bottom-color:var(--err);background:var(--err-bg);border-radius:4px;cursor:default;color:var(--err)}
 
 /* correct answer hint shown after wrong */
-.tw-hint{font-size:11px;color:var(--ok);margin-left:5px;font-weight:500;border-left:1.5px solid var(--ok);padding-left:5px}
+.tw-hint{font-size:11px;color:var(--ok);margin-left:5px;font-weight:500;border-left:1.5px solid var(--ok);padding-left:5px;cursor:pointer;position:relative}
+.tw-hint:hover{text-decoration:underline}
+.tw-dict-popup{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--surface);border:.5px solid var(--border2);border-radius:8px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:50;display:flex;align-items:center;gap:4px;white-space:nowrap;animation:dict-pop-in .12s ease}
+@keyframes dict-pop-in{from{opacity:0;transform:translateX(-50%) scale(.85)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.tw-dict-popup-btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 9px;font-size:14px;cursor:pointer;line-height:1;display:flex;align-items:center;gap:4px}
+.tw-dict-popup-btn:hover{opacity:.85}
+.tw-dict-popup-btn.added{background:var(--ok)}
 
 .pctrl{display:flex;gap:8px;padding:11px 14px;border-top:.5px solid var(--border)}
 .pinfo{font-size:12px;color:var(--text3);padding:7px 14px;background:var(--surface2);border-top:.5px solid var(--border)}
@@ -318,6 +340,9 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
     <div class="sidebar-item" onclick="sidebarGoFolders()">
       <span class="sidebar-item-icon">📁</span><span>Мої папки</span>
     </div>
+    <div class="sidebar-item" onclick="sidebarOpenDictionary()">
+      <span class="sidebar-item-icon">📖</span><span>Словник</span>
+    </div>
     <div class="sidebar-sec">Останні завдання</div>
     <div id="sidebarRecent"></div>
   </div>
@@ -421,9 +446,36 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       </div>
     </div>
   </div>
+
+  <!-- DICTIONARY -->
+  <div class="page" id="pgDictionary">
+    <div class="ptitle">📖 Словник</div>
+    <div class="psub">Слова, додані з помилок у практиці</div>
+    <div class="dict-filter-bar" id="dictFilterBar" style="display:none"></div>
+    <div id="dictList"></div>
+  </div>
 </main>
 
 <div class="tc" id="tc"></div>
+
+<!-- modal: edit dictionary entry -->
+<div class="mo" id="moDictEdit">
+  <div class="md" style="max-width:420px">
+    <div class="mdtitle">Редагувати пару слів</div>
+    <div class="fg">
+      <label class="fl">Слово (твій варіант)</label>
+      <input class="fi" id="dictEditUser" placeholder="Слово">
+    </div>
+    <div class="fg">
+      <label class="fl">Правильний переклад</label>
+      <input class="fi" id="dictEditCorrect" placeholder="Переклад">
+    </div>
+    <div class="mdact">
+      <button class="btn" onclick="closeMo('moDictEdit')">Скасувати</button>
+      <button class="btn btn-p" onclick="saveDictEdit()">Зберегти</button>
+    </div>
+  </div>
+</div>
 
 <!-- modal: trigger table -->
 <div class="mo" id="moTrig">
@@ -516,7 +568,7 @@ const PRESETS=[
   {flag:'🇸🇦',name:'Арабська',native:'العربية'},
 ];
 
-let DB={langs:[]};
+let DB={langs:[], dictionary:[]};
 
 let curLang=null, curTask=null, curDir='A', curMode='edit';
 let editingLang=null, editingTask=null;
@@ -691,7 +743,7 @@ async function gdriveLoad(){
     if(!r2)return
     try{
       const json=await r2.json()
-      if(json && json.langs) DB=json
+      if(json && json.langs){ DB=json; if(!Array.isArray(DB.dictionary)) DB.dictionary=[] }
     }catch(e){console.warn('Drive parse error',e)}
   } else {
     await gdriveUpload()
@@ -749,6 +801,7 @@ function save(){
 async function gdriveInit(){
   // Load local cache immediately so UI is usable even before sign-in
   try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
+  if(!Array.isArray(DB.dictionary)) DB.dictionary=[]
 
   // Case 1: we just got redirected back from /api/auth-callback with
   // an access_token in the URL hash.
@@ -832,7 +885,7 @@ function showPage(id){
 // browser history entry, so the Android back gesture / browser back
 // button steps back through the app instead of leaving the page.
 function historyState(){
-  return {lang:curLang, task:curTask}
+  return {lang:curLang, task:curTask, page: curLang||curTask ? null : (document.getElementById('pgDictionary')?.classList.contains('active') ? 'dictionary' : null)}
 }
 function pushHistory(){
   history.pushState(historyState(), '', location.pathname+location.search)
@@ -866,6 +919,10 @@ function applyState(state){
       showPage('pgTasks'); renderTasks()
       return
     }
+  }
+  if(state?.page==='dictionary'){
+    showPage('pgDictionary'); renderDictionary()
+    return
   }
   curLang=null; curTask=null
   showPage('pgLangs'); renderLangs()
@@ -956,6 +1013,12 @@ function sidebarGoHome(){
 }
 function sidebarGoFolders(){
   sidebarGoHome()
+}
+function sidebarOpenDictionary(){
+  closeSidebar()
+  curLang=null; curTask=null
+  showPage('pgDictionary'); renderDictionary()
+  pushHistory()
 }
 function sidebarOpenTask(langId, taskId){
   closeSidebar()
@@ -1123,6 +1186,110 @@ function getSortedTasks(tasks){
     return 0
   })
   return arr
+}
+
+// ──────────────────────────────────────────────────────
+// DICTIONARY PAGE
+// ──────────────────────────────────────────────────────
+let dictFilterLangId = null // null = show all languages
+let editingDictId = null
+
+function renderDictionary(){
+  const entries = DB.dictionary || []
+  renderDictFilterBar(entries)
+
+  const filtered = dictFilterLangId
+    ? entries.filter(d=>d.langId===dictFilterLangId)
+    : entries
+
+  const list = document.getElementById('dictList')
+  if(filtered.length===0){
+    list.innerHTML = `<div class="dict-empty">
+      <div class="dict-empty-icon">📖</div>
+      <div>${entries.length===0 ? 'Словник поки порожній' : 'Немає слів для цієї мови'}</div>
+      <div style="font-size:12px;margin-top:6px;color:var(--text3)">
+        ${entries.length===0 ? 'Додавайте слова з помилок під час практики — натисніть на підказку правильної відповіді.' : ''}
+      </div>
+    </div>`
+    return
+  }
+
+  // Newest first
+  const sorted = [...filtered].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))
+
+  list.innerHTML = sorted.map(d => `
+    <div class="dict-row" data-id="${d.id}">
+      <div class="dict-row-words">
+        <span class="dict-word dict-word-user">${esc(d.userWord)}</span>
+        <span class="dict-arrow">→</span>
+        <span class="dict-word dict-word-correct">${esc(d.correctWord)}</span>
+        <div class="dict-row-meta">${d.langFlag||''} ${esc(d.langName||'')}${d.taskName?' · '+esc(d.taskName):''}</div>
+      </div>
+      <div class="dict-row-actions">
+        <button class="btn btn-ico btn-sm" onclick="editDictEntry('${d.id}')">✏️</button>
+        <button class="btn btn-ico btn-sm btn-d" onclick="delDictEntry('${d.id}')">🗑️</button>
+      </div>
+    </div>
+  `).join('')
+  parseEmoji(list)
+}
+
+function renderDictFilterBar(entries){
+  const bar = document.getElementById('dictFilterBar')
+  // Build unique language list present in the dictionary
+  const langMap = new Map()
+  entries.forEach(d=>{
+    if(d.langId && !langMap.has(d.langId)){
+      langMap.set(d.langId, {flag:d.langFlag, name:d.langName})
+    }
+  })
+  if(langMap.size===0){ bar.style.display='none'; return }
+  bar.style.display='flex'
+  let h = `<button class="dict-filter-chip${dictFilterLangId===null?' active':''}" onclick="setDictFilter(null)">Усі мови</button>`
+  langMap.forEach((info,id)=>{
+    h += `<button class="dict-filter-chip${dictFilterLangId===id?' active':''}" onclick="setDictFilter('${id}')">${info.flag||''} ${esc(info.name||'')}</button>`
+  })
+  bar.innerHTML = h
+  parseEmoji(bar)
+}
+
+function setDictFilter(langId){
+  dictFilterLangId = langId
+  renderDictionary()
+}
+
+function editDictEntry(id){
+  const entry = DB.dictionary.find(d=>d.id===id)
+  if(!entry) return
+  editingDictId = id
+  document.getElementById('dictEditUser').value = entry.userWord
+  document.getElementById('dictEditCorrect').value = entry.correctWord
+  openMo('moDictEdit')
+}
+
+function saveDictEdit(){
+  const entry = DB.dictionary.find(d=>d.id===editingDictId)
+  if(!entry) return
+  const userWord = document.getElementById('dictEditUser').value.trim()
+  const correctWord = document.getElementById('dictEditCorrect').value.trim()
+  if(!userWord || !correctWord){ toast('Заповніть обидва поля','err'); return }
+  entry.userWord = userWord
+  entry.correctWord = correctWord
+  save()
+  closeMo('moDictEdit')
+  renderDictionary()
+  toast('Збережено','ok')
+}
+
+function delDictEntry(id){
+  const entry = DB.dictionary.find(d=>d.id===id)
+  if(!entry) return
+  cfm(`Видалити пару "${entry.userWord} → ${entry.correctWord}" зі словника?`, ()=>{
+    DB.dictionary = DB.dictionary.filter(d=>d.id!==id)
+    save()
+    renderDictionary()
+    toast('Видалено зі словника','ok')
+  })
 }
 
 function renderSortBar(){
@@ -1716,6 +1883,60 @@ function stripAccents(s){
   // Remove combining diacritical marks (including Ukrainian stress accent U+0301)
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
 }
+// ──────────────────────────────────────────────────────
+// DICTIONARY — saving mistaken words for later review
+// ──────────────────────────────────────────────────────
+let _dictPopupEl = null
+
+function closeDictPopup(){
+  if(_dictPopupEl){ _dictPopupEl.remove(); _dictPopupEl=null }
+}
+document.addEventListener('click', e=>{
+  if(_dictPopupEl && !_dictPopupEl.contains(e.target)) closeDictPopup()
+})
+
+function openDictAddPopup(anchorEl, userWord, correctWord){
+  closeDictPopup()
+  const lang = gl(curLang)
+  const task = gt(curLang, curTask)
+  const already = DB.dictionary.some(d =>
+    d.langId===curLang && stripAccents(d.userWord)===stripAccents(userWord) && stripAccents(d.correctWord)===stripAccents(correctWord)
+  )
+  const popup = document.createElement('div')
+  popup.className = 'tw-dict-popup'
+  const btn = document.createElement('button')
+  btn.className = 'tw-dict-popup-btn' + (already ? ' added' : '')
+  btn.innerHTML = already ? '✓ Вже додано' : '📖 Додати в словник'
+  btn.onclick = ev => {
+    ev.stopPropagation()
+    if(already){ closeDictPopup(); return }
+    addToDictionary(userWord, correctWord)
+    btn.innerHTML = '✓ Додано'
+    btn.classList.add('added')
+    setTimeout(closeDictPopup, 700)
+  }
+  popup.appendChild(btn)
+  anchorEl.appendChild(popup)
+  _dictPopupEl = popup
+}
+
+function addToDictionary(userWord, correctWord){
+  const lang = gl(curLang)
+  const task = gt(curLang, curTask)
+  DB.dictionary.push({
+    id: uid(),
+    langId: curLang,
+    langFlag: lang?.flag || '',
+    langName: lang?.name || '',
+    taskName: task?.name || '',
+    userWord: userWord,
+    correctWord: correctWord,
+    createdAt: Date.now()
+  })
+  save()
+  toast('Додано в словник 📖','ok')
+}
+
 function checkAll(){
   closeOpenInput(true)
   let ok=0,err=0,empty=0
@@ -1737,6 +1958,10 @@ function checkAll(){
       twEl.classList.add('tw-err')
       const usp=document.createElement('span'); usp.textContent=user; twEl.appendChild(usp)
       const h=document.createElement('span'); h.className='tw-hint'; h.textContent=exp; twEl.appendChild(h)
+      h.addEventListener('click', ev=>{
+        ev.stopPropagation()
+        openDictAddPopup(h, user, exp)
+      })
       w.status='err'; err++
     }
   })
