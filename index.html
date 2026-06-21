@@ -45,6 +45,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ── buttons ── */
 .btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:var(--r);border:.5px solid var(--border2);background:transparent;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--tr),transform var(--tr);white-space:nowrap}
+.back-arrow{width:13px;height:13px;flex-shrink:0}
+.back-arrow path{stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;fill:none}
 .btn:hover{background:var(--surface2)}.btn:active{transform:scale(.98)}
 .btn-p{background:var(--accent);color:#fff;border-color:transparent}.btn-p:hover{opacity:.9;background:var(--accent)}
 .btn-sm{padding:5px 10px;font-size:12px}
@@ -960,8 +962,8 @@ function renderBC(){
 function renderHdrR(){
   const ha=document.getElementById('hdrR')
   let back=''
-  if(curTask) back=`<button class="btn btn-sm" onclick="goTasks()">← Завдання</button>`
-  else if(curLang) back=`<button class="btn btn-sm" onclick="goLangs()">← Мови</button>`
+  if(curTask) back=`<button class="btn btn-sm" onclick="goTasks()"><svg class="back-arrow" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg> Завдання</button>`
+  else if(curLang) back=`<button class="btn btn-sm" onclick="goLangs()"><svg class="back-arrow" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg> Мови</button>`
   ha.innerHTML=back
   renderGdriveButton()
 }
