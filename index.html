@@ -1681,7 +1681,10 @@ function buildPracFrag(html, onClickFn){
     const trimmed=text.replace(/[\s"'«»()\u00A0]+$/,'')
     if(trimmed==='') return true // nothing before it (start of text / start of a block)
     const lastChar=trimmed[trimmed.length-1]
-    return lastChar==='.'||lastChar==='!'||lastChar==='?'||lastChar===':'
+    // Note: ':' is intentionally excluded — a colon usually introduces a
+    // list or direct quote ("Він сказав: привіт"), not a new capitalized
+    // sentence, so the word right after it should stay lowercase.
+    return lastChar==='.'||lastChar==='!'||lastChar==='?'
   }
   function walk(n){
     if(n.nodeType===Node.TEXT_NODE){
@@ -1799,13 +1802,17 @@ function openNextTrigger(fromIdx){
   if(total===0) return
   for(let step=1; step<=total; step++){
     const idx=(fromIdx+step)%total
+    if(idx===fromIdx) break // wrapped all the way back to the word we just closed — nothing else to fill in
     if(pWords[idx] && pWords[idx].status==='none'){
       const twEl=document.querySelector(`.tw[data-idx="${idx}"]`)
       if(twEl){ handleTwClick(idx, twEl) }
       return
     }
   }
-  // No unanswered words left — nothing to open.
+  // No other unanswered words left (this was the last one). Finalize:
+  // blur any focused element so the on-screen keyboard closes on
+  // Android, and the field just looks "done" everywhere else.
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur()
 }
 
 function handleTwClick(idx, twEl){
