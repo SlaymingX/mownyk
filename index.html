@@ -1800,19 +1800,24 @@ function showTriggerTable(){
 function openNextTrigger(fromIdx){
   const total=pWords.length
   if(total===0) return
-  for(let step=1; step<=total; step++){
+
+  // Find next word after fromIdx that has no answer typed yet
+  for(let step=1; step<total; step++){
     const idx=(fromIdx+step)%total
-    if(idx===fromIdx) break // wrapped all the way back to the word we just closed — nothing else to fill in
-    if(pWords[idx] && pWords[idx].status==='none'){
+    const w=pWords[idx]
+    if(w && w.status==='none' && (w.userAnswer===undefined || w.userAnswer===null || w.userAnswer==='')){
       const twEl=document.querySelector(`.tw[data-idx="${idx}"]`)
       if(twEl){ handleTwClick(idx, twEl) }
       return
     }
   }
-  // No other unanswered words left (this was the last one). Finalize:
-  // blur any focused element so the on-screen keyboard closes on
-  // Android, and the field just looks "done" everywhere else.
-  if(document.activeElement && document.activeElement.blur) document.activeElement.blur()
+  // All other words are either answered or already have typed text.
+  // This was the last blank — dismiss the keyboard.
+  setTimeout(()=>{
+    if(document.activeElement && typeof document.activeElement.blur==='function'){
+      document.activeElement.blur()
+    }
+  }, 50)
 }
 
 function handleTwClick(idx, twEl){
