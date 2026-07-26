@@ -82,7 +82,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dict-filter-chip.active{background:var(--accent);color:#fff;border-color:transparent}
 .dict-row{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:13px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px}
 .dict-row-words{flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.dict-word{font-size:14px;font-weight:600}
+.dict-word{font-size:14px;font-weight:600;cursor:pointer;border-radius:6px;padding:2px 5px;margin:-2px -5px;transition:background .15s ease}
+.dict-word:hover{background:var(--surface2)}
+.dict-word:active{background:var(--accent-light)}
+.dict-word-copied{background:var(--ok-bg)!important;color:var(--ok)!important}
 .dict-word-a{color:var(--text)}
 .dict-word-b{color:var(--accent)}
 .dict-arrow{color:var(--text3);font-size:13px}
@@ -433,6 +436,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
         <div class="pctrl">
           <button class="btn btn-p btn-sm" onclick="checkAll()">✅ Перевірити</button>
           <button class="btn btn-sm" onclick="resetPrac()">🔄 Скидання</button>
+          <button class="btn btn-sm" onclick="showTriggerTable()">🔍 Таблиця тригерів</button>
         </div>
         <div class="pinfo" id="pinfo"></div>
       </div>
@@ -866,6 +870,8 @@ async function gdriveInit(){
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// Escapes a string for safe use inside a single-quoted HTML attribute (onclick="...('...')")
+function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 // Replace native emoji glyphs (flags especially render as bare letters on
 // Windows/Linux Chrome) with Twemoji images, scoped to the given element.
 // Safe to call even before the CDN script has loaded.
@@ -1234,9 +1240,9 @@ function renderDictionary(){
   list.innerHTML = sorted.map(d => `
     <div class="dict-row" data-id="${d.id}">
       <div class="dict-row-words">
-        <span class="dict-word dict-word-a">${esc(d.wordA)}</span>
+        <span class="dict-word dict-word-a" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(d.wordA)}')">${esc(d.wordA)}</span>
         <span class="dict-arrow">↔</span>
-        <span class="dict-word dict-word-b">${esc(d.wordB)}</span>
+        <span class="dict-word dict-word-b" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(d.wordB)}')">${esc(d.wordB)}</span>
         <div class="dict-row-meta">${d.langFlag||''} ${esc(d.langName||'')}${d.taskName?' · '+esc(d.taskName):''}</div>
       </div>
       <div class="dict-row-actions">
@@ -1270,6 +1276,34 @@ function renderDictFilterBar(entries){
 function setDictFilter(langId){
   dictFilterLangId = langId
   renderDictionary()
+}
+
+// Copy a single dictionary word/translation to the clipboard on click,
+// with a small visual flash + toast confirmation.
+function copyDictWord(el,text){
+  const decoded = text.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&')
+  const done=()=>{
+    el.classList.add('dict-word-copied')
+    setTimeout(()=>el.classList.remove('dict-word-copied'),450)
+    toast('Скопійовано: '+decoded,'ok')
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(decoded).then(done).catch(()=>fallbackCopy(decoded,done))
+  } else {
+    fallbackCopy(decoded,done)
+  }
+}
+
+function fallbackCopy(text,cb){
+  const ta=document.createElement('textarea')
+  ta.value=text
+  ta.style.position='fixed'
+  ta.style.opacity='0'
+  document.body.appendChild(ta)
+  ta.select()
+  try{ document.execCommand('copy') }catch(e){}
+  document.body.removeChild(ta)
+  if(cb) cb()
 }
 
 function editDictEntry(id){
@@ -1751,16 +1785,19 @@ function buildPractice(){
   const pa=document.getElementById('pa')
   pa.innerHTML=''; pa.appendChild(frag)
 
+  // Always keep the trigger debug data current so the table can be
+  // opened at any time, not only when trigger counts mismatch.
+  const _curW=extractBold(isA?(task.pA||''):(task.pB||''))
+  window._trigDebug={cur:_curW, opp:oppWords}
+
   // info
   const info=document.getElementById('pinfo')
   if(count===0){
     info.innerHTML='Немає жирних слів у цій панелі. Виділіть слова жирним у режимі редагування.'
   } else if(count!==oppWords.length){
-    const _curW=extractBold(isA?(task.pA||''):(task.pB||''))
-    window._trigDebug={cur:_curW, opp:oppWords}
     info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Переглянути тригери</button>`
   } else {
-    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь.`
+    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Тригери</button>`
   }
 }
 
