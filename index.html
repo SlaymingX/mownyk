@@ -223,6 +223,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes tin{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 .toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--err)}
 
+/* dictionary delete-undo bar */
+.dict-undo-bar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:300;display:flex;align-items:center;gap:12px;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r);padding:10px 12px 10px 16px;box-shadow:0 2px 12px rgba(0,0,0,.15);font-size:13px;animation:tin .2s ease}
+
 
 img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;display:inline-block}
 
@@ -474,6 +477,11 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
   </div>
 </main>
 
+<div class="dict-undo-bar" id="dictUndoBar" style="display:none">
+  <span id="dictUndoText"></span>
+  <button class="btn btn-sm btn-p" onclick="undoDictDelete()">↩️ Повернути</button>
+</div>
+
 <div class="tc" id="tc"></div>
 
 <!-- modal: edit dictionary entry -->
@@ -595,6 +603,11 @@ let editingLang=null, editingTask=null;
 // indexed same as .tw elements in the DOM
 let pWords=[];
 let openTwIdx=-1; // which .tw is currently open (has inline input)
+// Which task/direction pWords currently represents — lets us persist
+// progress into the right task before it gets overwritten or the user
+// navigates away, without depending on curLang/curTask (which may
+// already have changed by the time we get to flush).
+let pWordsMeta=null; // {langId, taskId, dir}
 
 // ──────────────────────────────────────────────────────
 // GOOGLE DRIVE SYNC — server-side OAuth with refresh token
@@ -895,6 +908,8 @@ function gt(lid,tid){return gl(lid)?.tasks?.find(t=>t.id===tid)}
 // NAVIGATION
 // ──────────────────────────────────────────────────────
 function showPage(id){
+  if(id!=='pgDictionary' && dictUndoQueue.length>0) finalizeDictUndo()
+  if(id!=='pgEditor') flushPracticeProgress()
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.getElementById(id).classList.add('active')
   renderBC(); renderHdrR()
@@ -913,6 +928,7 @@ function pushHistory(){
 function applyState(state){
   // Restore curLang/curTask from a history entry and re-render the
   // matching page WITHOUT pushing a new history entry.
+  flushPracticeProgress()
   curLang = state?.lang ?? null
   curTask = state?.task ?? null
   if(curTask && curLang){
@@ -1330,14 +1346,61 @@ function saveDictEdit(){
 }
 
 function delDictEntry(id){
-  const entry = DB.dictionary.find(d=>d.id===id)
-  if(!entry) return
-  cfm(`Видалити пару "${entry.wordA} ↔ ${entry.wordB}" зі словника?`, ()=>{
-    DB.dictionary = DB.dictionary.filter(d=>d.id!==id)
-    save()
-    renderDictionary()
-    toast('Видалено зі словника','ok')
-  })
+  const idx = DB.dictionary.findIndex(d=>d.id===id)
+  if(idx===-1) return
+  const [entry] = DB.dictionary.splice(idx,1)
+  save()
+  renderDictionary()
+  queueDictUndo(entry)
+}
+
+// ── Undo queue for deleted dictionary words ─────────────
+// Deleting is instant (no confirm dialog). Instead, removed entries are
+// held in a short-lived queue with a "Повернути" button that restores
+// everything removed so far, until the timer runs out or the user
+// navigates away from the dictionary page.
+let dictUndoQueue = []
+let dictUndoTimer = null
+const DICT_UNDO_MS = 6000
+
+function queueDictUndo(entry){
+  dictUndoQueue.push(entry)
+  showDictUndoBar()
+  clearTimeout(dictUndoTimer)
+  dictUndoTimer = setTimeout(finalizeDictUndo, DICT_UNDO_MS)
+}
+
+function showDictUndoBar(){
+  const bar = document.getElementById('dictUndoBar')
+  if(!bar) return
+  const n = dictUndoQueue.length
+  document.getElementById('dictUndoText').textContent =
+    n===1 ? 'Слово видалено зі словника' : `Видалено слів: ${n}`
+  bar.style.display='flex'
+}
+
+function undoDictDelete(){
+  if(dictUndoQueue.length===0) return
+  DB.dictionary.push(...dictUndoQueue)
+  dictUndoQueue = []
+  clearTimeout(dictUndoTimer); dictUndoTimer=null
+  save()
+  renderDictionary()
+  hideDictUndoBar()
+  toast('Слова повернуто','ok')
+}
+
+// Called when the undo timer expires, or when leaving the dictionary
+// page — clears the queue without restoring (deletion becomes final).
+function finalizeDictUndo(){
+  clearTimeout(dictUndoTimer); dictUndoTimer=null
+  dictUndoQueue = []
+  hideDictUndoBar()
+}
+
+function hideDictUndoBar(){
+  const bar = document.getElementById('dictUndoBar')
+  if(bar) bar.style.display='none'
 }
 
 function renderSortBar(){
@@ -1554,6 +1617,7 @@ function delTask(id){
   })
 }
 function openTask(id){
+  flushPracticeProgress() // in case a different task was open in practice mode
   curTask=id; curDir='A'
   const task=gt(curLang,id)
   task.lastOpened=Date.now()
@@ -1758,6 +1822,10 @@ function buildPractice(){
   closeOpenInput(true)
   openTwIdx=-1
 
+  // Persist whatever the in-memory pWords currently hold (from the
+  // previous task/direction) before we overwrite them below.
+  flushPracticeProgress()
+
   const task=gt(curLang,curTask); if(!task)return
   const isA=curDir==='A'
   const curHtml=isA?(task.pA||''):(task.pB||'')
@@ -1782,8 +1850,32 @@ function buildPractice(){
     })
   }
 
+  // Restore previously saved answers/statuses for this task+direction,
+  // as long as the trigger-word count still matches (i.e. the bold
+  // words haven't changed since last time).
+  const savedKey=isA?'pracA':'pracB'
+  const savedProg=task[savedKey]
+  const canRestore=Array.isArray(savedProg) && savedProg.length===count
+  if(canRestore){
+    for(let i=0;i<count;i++){
+      pWords[i].userAnswer=savedProg[i].userAnswer||''
+      pWords[i].status=savedProg[i].status||'none'
+    }
+  }
+
   const pa=document.getElementById('pa')
   pa.innerHTML=''; pa.appendChild(frag)
+
+  // Re-render the visual state (checked/typed) of any restored words.
+  if(canRestore){
+    pa.querySelectorAll('.tw').forEach(twEl=>{
+      const idx=parseInt(twEl.dataset.idx)
+      applyRestoredTwVisual(twEl, pWords[idx])
+    })
+  }
+
+  // This pWords array now represents the current task+direction.
+  pWordsMeta={langId:curLang, taskId:curTask, dir:curDir}
 
   // Always keep the trigger debug data current so the table can be
   // opened at any time, not only when trigger counts mismatch.
@@ -1798,6 +1890,52 @@ function buildPractice(){
     info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Переглянути тригери</button>`
   } else {
     info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Тригери</button>`
+  }
+}
+
+// ── Practice progress persistence ───────────────────────
+// Saves typed answers + checked status (ok/err) into the task itself
+// (task.pracA / task.pracB), so it survives leaving the task, switching
+// direction, reloading the page, and syncs to Google Drive along with
+// everything else via the normal save() call.
+function persistPracticeProgress(){
+  if(!pWordsMeta) return false
+  const {langId,taskId,dir}=pWordsMeta
+  const task=gt(langId,taskId)
+  if(!task) return false
+  const key=dir==='A'?'pracA':'pracB'
+  task[key]=pWords.map(w=>({userAnswer:w.userAnswer, status:w.status}))
+  save()
+  return true
+}
+
+// Commits any open input, persists the current pWords into the task
+// they belong to, then clears pWordsMeta. Call this before pWords gets
+// reassigned to a different task/direction, or when leaving the editor.
+function flushPracticeProgress(){
+  if(!pWordsMeta) return
+  closeOpenInput(true)
+  persistPracticeProgress()
+  pWordsMeta=null
+}
+
+// Re-renders a restored word's saved state (ok/err/typed-but-unchecked)
+// onto its .tw element, mirroring what checkAll()/closeOpenInput() do.
+function applyRestoredTwVisual(twEl, w){
+  if(w.status==='ok'){
+    twEl.classList.add('tw-ok')
+    twEl.textContent=w.expected
+  } else if(w.status==='err'){
+    twEl.classList.add('tw-err')
+    twEl.innerHTML=''
+    const usp=document.createElement('span'); usp.textContent=w.userAnswer; twEl.appendChild(usp)
+    const h=document.createElement('span'); h.className='tw-hint'; h.textContent=w.expected; twEl.appendChild(h)
+    h.addEventListener('click', ev=>{
+      ev.stopPropagation()
+      openDictAddPopup(h, w.origText, w.expected)
+    })
+  } else if(w.userAnswer){
+    twEl.textContent=w.userAnswer
   }
 }
 
@@ -1931,6 +2069,10 @@ function closeOpenInput(commit){
     e.stopPropagation()
     handleTwClick(parseInt(this.dataset.idx),this)
   })
+
+  // Save the typed answer right away, so it isn't lost even if the
+  // user navigates away without pressing "Перевірити".
+  if(commit) persistPracticeProgress()
 }
 
 // Close open input when clicking outside
@@ -2028,11 +2170,20 @@ function checkAll(){
       w.status='err'; err++
     }
   })
+  persistPracticeProgress()
   if(ok+err===0&&empty>0){toast(`Заповніть відповіді (${empty} порожніх)`,'err');return}
   toast(`✅ ${ok} правильно · ❌ ${err} неправильно${empty?` · ${empty} порожніх`:''}`,err===0&&empty===0?'ok':'err')
 }
 
 function resetPrac(){
+  // Discard saved progress for the current task+direction — this is
+  // an explicit reset, not a navigation, so nothing should be restored.
+  const task=gt(curLang,curTask)
+  if(task){
+    delete task[curDir==='A'?'pracA':'pracB']
+    save()
+  }
+  pWordsMeta=null // drop in-memory state without persisting it
   openTwIdx=-1
   buildPractice()
 }
@@ -2192,6 +2343,15 @@ if('serviceWorker' in navigator && location.hostname !== 'localhost' && location
       .catch(e=>console.warn('SW skip:', e.message))
   })
 }
+
+// Best-effort save of any in-progress practice answers if the tab is
+// closed or refreshed mid-typing. localStorage write is synchronous;
+// the Google Drive upload is debounced and may not finish in time, but
+// the next successful save() call will carry it up.
+window.addEventListener('beforeunload', ()=>{
+  if(pWordsMeta) persistPracticeProgress()
+})
+
 </script>
 
 <!-- AUTH OVERLAY -->
