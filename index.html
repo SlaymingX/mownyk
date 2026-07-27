@@ -1887,9 +1887,9 @@ function buildPractice(){
   if(count===0){
     info.innerHTML='Немає жирних слів у цій панелі. Виділіть слова жирним у режимі редагування.'
   } else if(count!==oppWords.length){
-    info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Переглянути тригери</button>`
+    info.innerHTML=`⚠️ Кількість тригерів не збігається: тут ${count}, у протилежній панелі ${oppWords.length}.`
   } else {
-    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь. <button class="btn btn-sm" style="vertical-align:middle" onclick="showTriggerTable()">🔍 Тригери</button>`
+    info.innerHTML=`${count} слів для перекладу. Натисніть підкреслене слово, щоб ввести відповідь.`
   }
 }
 
@@ -1948,13 +1948,19 @@ function showTriggerTable(){
   const max=Math.max(cur.length,opp.length)
   let rows=''
   for(let i=0;i<max;i++){
-    const c=cur[i]!=null?esc(cur[i]):null
-    const o=opp[i]!=null?esc(opp[i]):null
+    const c=cur[i]!=null?cur[i]:null
+    const o=opp[i]!=null?opp[i]:null
     const miss=!cur[i]||!opp[i]
+    const cCell=c!=null
+      ? `<span class="dict-word dict-word-a" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(c)}')">${esc(c)}</span>`
+      : '<span style="color:var(--err)">—</span>'
+    const oCell=o!=null
+      ? `<span class="dict-word dict-word-b" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(o)}')">${esc(o)}</span>`
+      : '<span style="color:var(--err)">—</span>'
     rows+=`<tr style="${miss?'background:var(--err-bg);':''}">
       <td style="padding:5px 10px;color:var(--text3);font-size:12px;text-align:right;border-bottom:.5px solid var(--border)">${i+1}</td>
-      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${c||'<span style="color:var(--err)">—</span>'}</td>
-      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${o||'<span style="color:var(--err)">—</span>'}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${cCell}</td>
+      <td style="padding:5px 10px;border-bottom:.5px solid var(--border)">${oCell}</td>
     </tr>`
   }
   document.getElementById('trigTHead').innerHTML=`<tr>
