@@ -545,7 +545,7 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
     <div class="fg">
       <label class="fl">Emoji</label>
       <div class="emoji-field-row">
-        <div class="emoji-preview-btn" id="tEmoPreview" title="Вставте (Ctrl+V) свій emoji сюди" contenteditable="true" onpaste="handleEmojiPaste(event)">📝</div>
+        <div class="emoji-preview-btn" id="tEmoPreview" title="Вставте (Ctrl+V) свій emoji сюди" contenteditable="true" onpaste="handleEmojiPaste(event)" oninput="onTaskEmojiPreviewInput(event)" onblur="parseEmoji(this)">📝</div>
         <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji або вставте (Ctrl+V) свій" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onclick="showEmojiPanel()" onpaste="handleEmojiPaste(event)">
       </div>
       <div class="emoji-picker-panel" id="emojiPanel" style="display:none">
@@ -599,6 +599,10 @@ let DB={langs:[], dictionary:[]};
 
 let curLang=null, curTask=null, curDir='A', curMode='edit';
 let editingLang=null, editingTask=null;
+// The task-emoji preview box gets rewritten by twemoji into an <img>,
+// which makes its .textContent unreliable for reading the chosen value
+// back out — so we track the actual picked emoji character here instead.
+let curTaskEmojiValue='📝';
 
 // practiceWords: array of {origText, expected, userAnswer, status:'none'|'ok'|'err'}
 // indexed same as .tw elements in the DOM
@@ -1502,7 +1506,7 @@ function getDirLabels(flag){
   return {lA:`UA → ${code}`, lB:`${code} → UA`}
 }
 function saveTask(){
-  const emoji=document.getElementById('tEmoPreview').textContent.trim()||'📝'
+  const emoji=(curTaskEmojiValue||'').trim()||'📝'
   const name=document.getElementById('tName').value.trim()
   if(!name){toast('Введіть назву','err');return}
   const lang=gl(curLang); if(!lang.tasks)lang.tasks=[]
@@ -1659,6 +1663,7 @@ const EMOJI_DB=[
 ];
 
 function setTaskEmoji(emoji){
+  curTaskEmojiValue=emoji
   const el=document.getElementById('tEmoPreview')
   el.textContent=emoji
   parseEmoji(el)
@@ -1669,6 +1674,14 @@ function setTaskEmoji(emoji){
 // box, instead of being limited to the curated EMOJI_DB list above.
 // Plain-text pastes (e.g. a keyword) are left alone so the search
 // field still works normally for that case.
+// Handles direct typing into the preview box — e.g. a mobile emoji
+// keyboard, which fires normal input events rather than a paste event.
+// Reads the raw text BEFORE twemoji (on blur) rewrites it into an <img>.
+function onTaskEmojiPreviewInput(e){
+  const val=e.target.textContent.trim()
+  if(val) curTaskEmojiValue=val
+}
+
 function handleEmojiPaste(e){
   const text=(e.clipboardData||window.clipboardData)?.getData('text')
   if(!text) return
