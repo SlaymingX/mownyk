@@ -595,7 +595,7 @@ const PRESETS=[
   {flag:'🇸🇦',name:'Арабська',native:'العربية'},
 ];
 
-let DB={langs:[], dictionary:[]};
+let DB={langs:[], dictionary:[], settings:{}};
 
 let curLang=null, curTask=null, curDir='A', curMode='edit';
 let editingLang=null, editingTask=null;
@@ -779,7 +779,7 @@ async function gdriveLoad(){
     if(!r2)return
     try{
       const json=await r2.json()
-      if(json && json.langs){ DB=json; if(!Array.isArray(DB.dictionary)) DB.dictionary=[] }
+      if(json && json.langs){ DB=json; if(!Array.isArray(DB.dictionary)) DB.dictionary=[]; if(!DB.settings||typeof DB.settings!=='object') DB.settings={} }
     }catch(e){console.warn('Drive parse error',e)}
   } else {
     await gdriveUpload()
@@ -838,6 +838,7 @@ async function gdriveInit(){
   // Load local cache immediately so UI is usable even before sign-in
   try{const s=localStorage.getItem('lf4');if(s)DB=JSON.parse(s)}catch(e){}
   if(!Array.isArray(DB.dictionary)) DB.dictionary=[]
+  if(!DB.settings||typeof DB.settings!=='object') DB.settings={}
 
   // Case 1: we just got redirected back from /api/auth-callback with
   // an access_token in the URL hash.
@@ -1181,16 +1182,30 @@ function delLang(id){
 // ──────────────────────────────────────────────────────
 // TASKS
 // ──────────────────────────────────────────────────────
-let taskSort = { key: 'date', asc: true }
-let showHiddenTasks = false
+// Sort order and "show hidden" preference are stored on DB.settings so
+// they sync to Google Drive with everything else, instead of resetting
+// on every refresh.
+function getTaskSort(){
+  if(!DB.settings) DB.settings={}
+  if(!DB.settings.taskSort || typeof DB.settings.taskSort!=='object'){
+    DB.settings.taskSort={ key:'date', asc:true }
+  }
+  return DB.settings.taskSort
+}
+function getShowHiddenTasks(){
+  if(!DB.settings) DB.settings={}
+  return !!DB.settings.showHiddenTasks
+}
 
 function setSort(key){
+  const taskSort=getTaskSort()
   if(taskSort.key === key){
     taskSort.asc = !taskSort.asc
   } else {
     taskSort.key = key
     taskSort.asc = true
   }
+  save()
   renderTasks()
 }
 
@@ -1204,13 +1219,15 @@ function toggleTaskHidden(id){
 }
 
 function toggleShowHidden(){
-  showHiddenTasks = !showHiddenTasks
+  if(!DB.settings) DB.settings={}
+  DB.settings.showHiddenTasks = !getShowHiddenTasks()
+  save()
   renderTasks()
 }
 
 function getSortedTasks(tasks){
   const arr = [...(tasks||[])]
-  const { key, asc } = taskSort
+  const { key, asc } = getTaskSort()
   arr.sort((a, b) => {
     let va, vb
     if(key === 'date'){
@@ -1418,6 +1435,7 @@ function renderSortBar(){
 
   const keys = ['date','words','abc']
   const ids  = ['sortDate','sortWords','sortAbc']
+  const taskSort=getTaskSort()
   keys.forEach((k, i) => {
     const btn = document.getElementById(ids[i])
     const arr = document.getElementById(ids[i]+'Arrow')
@@ -1430,16 +1448,17 @@ function renderSortBar(){
   const hiddenBtn = document.getElementById('sortHidden')
   if(hiddenBtn){
     const hiddenCount = allTasks.filter(t=>t.hidden).length
+    const showHidden = getShowHiddenTasks()
     hiddenBtn.style.display = hiddenCount > 0 ? 'flex' : 'none'
-    hiddenBtn.classList.toggle('active', showHiddenTasks)
-    hiddenBtn.textContent = showHiddenTasks ? `🙈 Сховати (${hiddenCount})` : `👁️ Показати сховані (${hiddenCount})`
+    hiddenBtn.classList.toggle('active', showHidden)
+    hiddenBtn.textContent = showHidden ? `🙈 Сховати (${hiddenCount})` : `👁️ Показати сховані (${hiddenCount})`
   }
 }
 
 function renderTasks(){
   const lang=gl(curLang); let h=''
   const sorted = getSortedTasks(lang?.tasks)
-  const visible = showHiddenTasks ? sorted : sorted.filter(t=>!t.hidden)
+  const visible = getShowHiddenTasks() ? sorted : sorted.filter(t=>!t.hidden)
   visible.forEach(t=>{
     const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
     const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
