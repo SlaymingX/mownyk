@@ -238,7 +238,8 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
 
 /* ── emoji picker ── */
 .emoji-field-row{display:flex;align-items:center;gap:10px}
-.emoji-preview-btn{width:48px;height:48px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface2);font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:border-color var(--tr)}
+.emoji-preview-btn{width:48px;height:48px;border-radius:var(--r);border:.5px solid var(--border2);background:var(--surface2);font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:border-color var(--tr);outline:none}
+.emoji-preview-btn:focus{border-color:var(--accent)}
 .emoji-preview-btn:hover{border-color:var(--accent)}
 .emoji-search-input{flex:1}
 .emoji-picker-panel{margin-top:10px;border:.5px solid var(--border);border-radius:var(--r);background:var(--surface2);overflow:hidden}
@@ -544,8 +545,8 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
     <div class="fg">
       <label class="fl">Emoji</label>
       <div class="emoji-field-row">
-        <div class="emoji-preview-btn" id="tEmoPreview">📝</div>
-        <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji (pen, heart, fire…)" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onclick="showEmojiPanel()">
+        <div class="emoji-preview-btn" id="tEmoPreview" title="Вставте (Ctrl+V) свій emoji сюди" contenteditable="true" onpaste="handleEmojiPaste(event)">📝</div>
+        <input class="fi emoji-search-input" id="tEmoSearch" placeholder="Шукати emoji або вставте (Ctrl+V) свій" autocapitalize="none" autocorrect="off" oninput="searchEmoji(this.value)" onclick="showEmojiPanel()" onpaste="handleEmojiPaste(event)">
       </div>
       <div class="emoji-picker-panel" id="emojiPanel" style="display:none">
         <div class="emoji-grid" id="emojiGrid"></div>
@@ -1519,53 +1520,167 @@ function saveTask(){
 // ──────────────────────────────────────────────────────
 const EMOJI_DB=[
   ['📝','pen note write memo task'],['✏️','pencil write edit'],['🖊️','pen ballpoint'],
+  ['🖋️','pen fountain write'],['📃','page document paper'],['📄','page document paper'],
+  ['📋','clipboard list task'],['📌','pin push location'],['📍','pin location map'],
+  ['📎','paperclip clip'],['🗂️','folder file tabs organize'],['🗃️','card file box'],
   ['📚','book books study library'],['📖','book open read'],['📓','notebook'],
+  ['📔','notebook decorative diary'],['📕','book closed red'],['📗','book green'],
+  ['📘','book blue'],['📙','book orange'],['📒','ledger notebook'],
   ['🎯','target goal aim dart'],['💡','idea light bulb think'],['🧠','brain mind think'],
   ['❤️','heart love'],['🩷','heart pink love'],['💪','muscle strong arm'],
   ['🔥','fire hot flame'],['⭐','star favorite'],['✨','sparkles magic shine'],
   ['🎓','graduation cap school education'],['🏆','trophy win award'],['🥇','medal gold first'],
+  ['🥈','medal silver second'],['🥉','medal bronze third'],['🎖️','medal military honor'],
   ['🗣️','speak talk speech mouth'],['💬','speech bubble chat talk'],['🌍','world earth globe'],
-  ['🍎','apple fruit food'],['🍕','pizza food'],['🍔','burger food'],['☕','coffee drink'],
-  ['🏠','house home'],['🏢','office building work'],['🚗','car drive vehicle'],
-  ['✈️','plane airplane travel fly'],['🚀','rocket launch fast'],['⏰','clock alarm time'],
-  ['📅','calendar date schedule'],['🎵','music note song'],['🎬','movie film clapper'],
-  ['🎨','art paint palette'],['⚽','soccer football ball'],['🏀','basketball ball'],
-  ['🎮','game controller play'],['💼','briefcase work business'],['💰','money cash'],
-  ['🛒','cart shopping'],['🐶','dog animal pet'],['🐱','cat animal pet'],
-  ['🌱','plant seedling grow'],['🌳','tree nature'],['☀️','sun sunny weather'],
-  ['🌙','moon night'],['☁️','cloud weather'],['🌧️','rain weather'],
-  ['❄️','snow snowflake cold'],['🔑','key unlock'],['🔒','lock secure'],
-  ['📞','phone call telephone'],['📱','phone mobile smartphone'],['💻','laptop computer'],
-  ['🖥️','desktop computer monitor'],['⌨️','keyboard type'],['🖱️','mouse computer'],
-  ['📷','camera photo'],['🎤','microphone sing mic'],['🎧','headphones music listen'],
-  ['🧩','puzzle piece solve'],['🔬','microscope science'],['🧪','test tube chemistry'],
+  ['🌎','world earth globe americas'],['🌏','world earth globe asia'],['🍎','apple fruit food'],
+  ['🍏','apple green fruit'],['🍐','pear fruit'],['🍕','pizza food'],
+  ['🍔','burger food'],['🌭','hotdog food'],['🥪','sandwich food'],
+  ['🌮','taco food'],['🌯','burrito food'],['🥙','pita food wrap'],
+  ['🥘','paella food dish'],['🍝','pasta spaghetti food'],['🍜','noodles ramen food'],
+  ['🍲','stew soup food'],['☕','coffee drink'],['🍵','tea drink'],
+  ['🧃','juice box drink'],['🥤','soda drink cup'],['🧋','bubble tea drink boba'],
+  ['🍹','cocktail drink'],['🍸','martini drink'],['🏠','house home'],
+  ['🏡','house garden home'],['🏢','office building work'],['🏫','school building'],
+  ['🏛️','museum bank building'],['⛪','church building'],['🕌','mosque building'],
+  ['🏰','castle building'],['🚗','car drive vehicle'],['🚕','taxi car'],
+  ['🚙','suv car vehicle'],['✈️','plane airplane travel fly'],['🚀','rocket launch fast'],
+  ['⏰','clock alarm time'],['⏱️','stopwatch timer time'],['⌛','hourglass time wait'],
+  ['⏳','hourglass sand time'],['📅','calendar date schedule'],['📆','calendar page date'],
+  ['🗓️','calendar spiral schedule'],['🎵','music note song'],['🎶','music notes song'],
+  ['🎬','movie film clapper'],['📺','tv television screen'],['📻','radio music'],
+  ['🎥','camera video movie'],['🎨','art paint palette'],['⚽','soccer football ball'],
+  ['🏀','basketball ball'],['🏈','american football ball'],['🎾','tennis ball'],
+  ['🏐','volleyball ball'],['🏉','rugby ball'],['🎱','pool billiards ball'],
+  ['🏓','ping pong table tennis'],['🏸','badminton racket'],['🥊','boxing glove fight'],
+  ['🥋','martial arts karate'],['⛳','golf flag hole'],['🏹','archery bow arrow'],
+  ['🎣','fishing rod fish'],['🎮','game controller play'],['🕹️','joystick game retro'],
+  ['🎲','dice game random'],['♟️','chess pawn strategy'],['🃏','joker card game'],
+  ['💼','briefcase work business'],['💰','money cash'],['💵','money dollar bill'],
+  ['💶','money euro bill'],['💷','money pound bill'],['💴','money yen bill'],
+  ['🏦','bank building money'],['💎','diamond gem jewel'],['🛒','cart shopping'],
+  ['🛍️','shopping bags'],['🐶','dog animal pet'],['🐱','cat animal pet'],
+  ['🐭','mouse animal'],['🐹','hamster animal pet'],['🐰','rabbit animal pet'],
+  ['🦊','fox animal'],['🐻','bear animal'],['🐼','panda animal'],
+  ['🐨','koala animal'],['🐯','tiger animal'],['🦁','lion animal'],
+  ['🐮','cow animal'],['🐷','pig animal'],['🐸','frog animal'],
+  ['🐵','monkey animal'],['🐔','chicken animal bird'],['🐧','penguin animal bird'],
+  ['🦉','owl animal bird'],['🦄','unicorn fantasy animal'],['🐴','horse animal'],
+  ['🐢','turtle animal'],['🐍','snake animal'],['🦖','dinosaur animal'],
+  ['🐳','whale animal ocean'],['🐬','dolphin animal ocean'],['🦀','crab animal ocean'],
+  ['🐙','octopus animal ocean'],['🐝','bee insect animal'],['🦋','butterfly insect'],
+  ['🐦','bird animal'],['🐟','fish animal'],['🌱','plant seedling grow'],
+  ['🌳','tree nature'],['🌲','tree pine nature'],['🌴','palm tree tropical'],
+  ['🌵','cactus plant desert'],['🌾','wheat grain plant'],['🌿','herb leaf plant'],
+  ['🍀','clover luck plant'],['🌷','tulip flower'],['🌹','rose flower'],
+  ['🌻','sunflower flower'],['🌼','daisy flower'],['🌸','blossom flower cherry'],
+  ['☀️','sun sunny weather'],['🌙','moon night'],['☁️','cloud weather'],
+  ['🌧️','rain weather'],['⛈️','storm thunder weather'],['❄️','snow snowflake cold'],
+  ['🌈','rainbow colorful'],['⛅','weather cloud sun'],['🌪️','tornado weather storm'],
+  ['🔑','key unlock'],['🔒','lock secure'],['🔓','unlock open'],
+  ['🔐','lock key secure'],['📞','phone call telephone'],['📱','phone mobile smartphone'],
+  ['💻','laptop computer'],['🖥️','desktop computer monitor'],['⌨️','keyboard type'],
+  ['🖱️','mouse computer'],['🖨️','printer computer'],['💾','floppy disk save'],
+  ['💿','cd disk'],['📷','camera photo'],['📸','camera flash photo'],
+  ['🎤','microphone sing mic'],['🎧','headphones music listen'],['🎹','piano music keyboard'],
+  ['🎸','guitar music'],['🎻','violin music'],['🥁','drum music'],
+  ['🎺','trumpet music'],['🧩','puzzle piece solve'],['🔬','microscope science'],
+  ['🧪','test tube chemistry'],['🧫','petri dish science'],['🔭','telescope science space'],
+  ['🛰️','satellite space'],['🪐','planet space saturn'],['🌌','galaxy stars space'],
   ['🌐','globe internet web language'],['🗺️','map travel'],['🧭','compass direction'],
   ['🛏️','bed sleep'],['🍳','cooking egg breakfast'],['🥗','salad food healthy'],
-  ['🏃','run runner exercise'],['🧘','meditate yoga calm'],['😴','sleep tired'],
-  ['😀','smile happy face'],['😂','laugh funny lol'],['😍','love heart eyes'],
-  ['😎','cool sunglasses'],['🤔','think hmm question'],['😢','sad cry'],
-  ['😡','angry mad'],['🥳','party celebrate'],['🙏','pray thanks please'],
-  ['👍','thumbs up good ok'],['👎','thumbs down bad'],['👏','clap applause'],
-  ['🙌','hands up celebrate'],['🤝','handshake deal'],['✅','check done complete'],
+  ['🏃','run runner exercise'],['🚶','walk walking exercise'],['🧘','meditate yoga calm'],
+  ['🏋️','weightlifting gym exercise'],['🚴','cycling bike exercise'],['🏊','swimming exercise'],
+  ['😴','sleep tired'],['😀','smile happy face'],['😃','smile happy face'],
+  ['😄','smile happy face laugh'],['😁','grin happy face'],['😆','laugh happy face squint'],
+  ['😂','laugh funny lol'],['🙂','smile slight face'],['😊','smile blush happy face'],
+  ['😇','angel innocent face'],['😍','love heart eyes'],['🥰','love hearts face'],
+  ['😘','kiss love face'],['😎','cool sunglasses'],['🤩','star eyes excited'],
+  ['🥳','party celebrate'],['🤔','think hmm question'],['🧐','curious monocle think'],
+  ['😐','neutral face'],['😑','expressionless face'],['😪','sleepy tired face'],
+  ['😢','sad cry'],['😭','cry sob sad'],['😔','sad pensive face'],
+  ['😞','disappointed sad face'],['😡','angry mad'],['😠','angry mad face'],
+  ['🤬','angry swear face'],['😱','shocked scared face'],['😨','fear scared face'],
+  ['😰','anxious worried face'],['🥺','pleading puppy eyes face'],['😅','sweat nervous laugh face'],
+  ['😬','grimace awkward face'],['🙃','upside down silly face'],['😉','wink face'],
+  ['😋','yum tasty face'],['🤗','hug face'],['🤫','shh quiet face'],
+  ['🤭','giggle oops face'],['🙏','pray thanks please'],['👍','thumbs up good ok'],
+  ['👎','thumbs down bad'],['👏','clap applause'],['🙌','hands up celebrate'],
+  ['🤝','handshake deal'],['👋','wave hello hi'],['✌️','peace victory sign'],
+  ['🤞','fingers crossed luck'],['👌','ok sign hand'],['✅','check done complete'],
   ['❌','cross wrong no'],['❓','question mark'],['❗','exclamation mark important'],
-  ['🔔','bell notification ring'],['🎁','gift present box'],['🏖️','beach vacation summer'],
-  ['🏔️','mountain travel nature'],['🚲','bike bicycle'],['🚌','bus transport'],
-  ['🚂','train transport'],['⛅','weather cloud sun'],['🌈','rainbow colorful'],
-  ['🦋','butterfly insect'],['🐦','bird animal'],['🐟','fish animal'],
-  ['🍇','grapes fruit'],['🍌','banana fruit'],['🥕','carrot vegetable'],
-  ['🍞','bread food'],['🧀','cheese food'],['🍷','wine drink'],
-  ['🍺','beer drink'],['🎉','party tada celebrate'],['🎈','balloon party'],
+  ['⚠️','warning caution alert'],['🔴','red circle dot'],['🟢','green circle dot'],
+  ['🟡','yellow circle dot'],['🔵','blue circle dot'],['⚪','white circle dot'],
+  ['⚫','black circle dot'],['🔔','bell notification ring'],['🎁','gift present box'],
+  ['🏖️','beach vacation summer'],['🏔️','mountain travel nature'],['⛰️','mountain nature'],
+  ['🌋','volcano nature'],['🏕️','camping tent travel'],['🗻','mountain fuji travel'],
+  ['🚲','bike bicycle'],['🚌','bus transport'],['🚎','trolleybus transport'],
+  ['🚂','train transport'],['🚆','train transport rail'],['🚇','subway metro transport'],
+  ['🚢','ship boat transport'],['⛵','sailboat boat transport'],['🚤','speedboat boat'],
+  ['🛳️','cruise ship transport'],['🚁','helicopter transport fly'],['🛸','ufo space fly'],
+  ['🚦','traffic light road'],['🛑','stop sign road'],['🍇','grapes fruit'],
+  ['🍌','banana fruit'],['🍉','watermelon fruit'],['🍊','orange fruit'],
+  ['🍋','lemon fruit'],['🍒','cherry fruit'],['🍓','strawberry fruit'],
+  ['🍍','pineapple fruit'],['🥑','avocado fruit'],['🥕','carrot vegetable'],
+  ['🌽','corn vegetable'],['🥔','potato vegetable'],['🧄','garlic vegetable'],
+  ['🧅','onion vegetable'],['🥦','broccoli vegetable'],['🍞','bread food'],
+  ['🥐','croissant bread food'],['🧀','cheese food'],['🥚','egg food'],
+  ['🥓','bacon food'],['🍗','chicken leg food'],['🥩','steak meat food'],
+  ['🍣','sushi food'],['🍱','bento food lunch'],['🥟','dumpling food'],
+  ['🍦','ice cream soft food'],['🍨','ice cream food'],['🍩','donut food'],
+  ['🍪','cookie food'],['🎂','cake birthday food'],['🍰','cake slice food'],
+  ['🧁','cupcake food'],['🍫','chocolate food'],['🍬','candy food sweet'],
+  ['🍭','lollipop food candy'],['🍯','honey food'],['🍷','wine drink'],
+  ['🍺','beer drink'],['🍻','beer cheers drink'],['🥂','champagne cheers drink'],
+  ['🎉','party tada celebrate'],['🎈','balloon party'],['🎊','confetti party'],
+  ['🪅','pinata party'],['🎃','pumpkin halloween'],['🎄','christmas tree holiday'],
   ['🕐','clock time hour'],['📊','chart graph data'],['📈','chart up growth'],
   ['📉','chart down decline'],['🧾','receipt bill paper'],['💳','card payment'],
   ['🏥','hospital medical'],['💊','pill medicine'],['🩺','stethoscope doctor'],
+  ['🩹','bandage medical injury'],['🧬','dna science biology'],['🦠','virus microbe science'],
   ['👨‍🏫','teacher man'],['👩‍🏫','teacher woman'],['🧑‍🎓','student graduate'],
+  ['👨‍💻','programmer man coder'],['👩‍💻','programmer woman coder'],['👨‍⚕️','doctor man'],
+  ['👩‍⚕️','doctor woman'],['👨‍🍳','chef man cook'],['👩‍🍳','chef woman cook'],
   ['🇺🇦','flag ukraine'],['🇬🇧','flag uk england'],['🇩🇪','flag germany'],
-  ['🍿','popcorn movie snack'],['🎹','piano music keyboard'],['🎸','guitar music'],
-  ['🎻','violin music'],['🥁','drum music'],['🎺','trumpet music'],
+  ['🇺🇸','flag usa america'],['🇫🇷','flag france'],['🇪🇸','flag spain'],
+  ['🇮🇹','flag italy'],['🇵🇱','flag poland'],['🇯🇵','flag japan'],
+  ['🇨🇳','flag china'],['🇰🇷','flag korea'],['🇧🇷','flag brazil'],
+  ['🇨🇦','flag canada'],['🇳🇱','flag netherlands'],['🇵🇹','flag portugal'],
+  ['🍿','popcorn movie snack'],['🧸','teddy bear toy'],['🪀','yoyo toy'],
+  ['🎪','circus tent'],['🎭','theater masks drama'],['🧵','thread sewing'],
+  ['🧶','yarn knit'],['🪡','needle sewing'],['🛠️','tools wrench hammer'],
+  ['🔧','wrench tool fix'],['🔨','hammer tool'],['⚙️','gear settings mechanism'],
+  ['🧰','toolbox tools'],['🪛','screwdriver tool'],['♻️','recycle environment green'],
+  ['🌡️','thermometer temperature'],['🧯','fire extinguisher'],['🕯️','candle light'],
+  ['🔦','flashlight light torch'],['🪔','lamp diya light'],['🧳','suitcase luggage travel'],
+  ['🎒','backpack bag school'],['👜','handbag purse'],['👓','glasses eyewear'],
+  ['🕶️','sunglasses eyewear'],['👑','crown royal king'],['💍','ring jewelry'],
+  ['👗','dress clothing'],['👕','shirt clothing'],['👖','pants jeans clothing'],
+  ['👟','shoe sneaker clothing'],['🧢','cap hat clothing'],
 ];
 
 function setTaskEmoji(emoji){
-  document.getElementById('tEmoPreview').textContent=emoji
+  const el=document.getElementById('tEmoPreview')
+  el.textContent=emoji
+  parseEmoji(el)
+}
+
+// Lets the person paste an emoji they copied from elsewhere (e.g. an
+// emoji picker website) directly into the search field or the preview
+// box, instead of being limited to the curated EMOJI_DB list above.
+// Plain-text pastes (e.g. a keyword) are left alone so the search
+// field still works normally for that case.
+function handleEmojiPaste(e){
+  const text=(e.clipboardData||window.clipboardData)?.getData('text')
+  if(!text) return
+  const trimmed=text.trim()
+  if(!trimmed) return
+  const looksLikeEmoji=/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(trimmed)
+  if(!looksLikeEmoji) return // not an emoji — let it paste as normal search text
+  e.preventDefault()
+  setTaskEmoji(trimmed)
+  document.getElementById('tEmoSearch').value=''
+  document.getElementById('emojiPanel').style.display='none'
+  toast('Emoji вставлено','ok')
 }
 function showEmojiPanel(){
   const panel=document.getElementById('emojiPanel')
