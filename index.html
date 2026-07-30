@@ -80,6 +80,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .home-continue-meta{font-size:12px;color:var(--text2);margin-top:2px}
 .home-continue-btn{flex-shrink:0}
 .home-section-title{font-size:14.5px;font-weight:600;margin:4px 0 12px;color:var(--text2)}
+.home-section-title-row{display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px}
+.home-vocab-bar{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;margin-bottom:22px;scrollbar-width:thin}
+.home-vocab-empty{font-size:12px;color:var(--text3);margin-bottom:22px}
+.home-vocab-chip{flex-shrink:0;display:flex;align-items:center;gap:6px;background:var(--surface);border:.5px solid var(--border);border-radius:20px;padding:8px 14px;font-size:13px;white-space:nowrap}
+.home-vocab-viewall{flex-shrink:0;display:flex;align-items:center;padding:8px 16px;color:var(--accent);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border-radius:20px;border:.5px dashed var(--border2);transition:border-color var(--tr)}
+.home-vocab-viewall:hover{border-color:var(--accent)}
 .home-folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .home-folder-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:16px;transition:border-color var(--tr)}
 .home-folder-card:hover{border-color:var(--accent)}
@@ -443,6 +449,12 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
     <div class="home-stats" id="homeStats"></div>
 
     <div id="homeContinue"></div>
+
+    <div class="home-section-title-row" id="homeVocabTitleRow" style="display:none">
+      <div class="home-section-title" style="margin:0">📖 Словник</div>
+      <button class="btn btn-sm" onclick="renderHomeVocab()" title="Показати інші слова">🔀 Інші слова</button>
+    </div>
+    <div class="home-vocab-bar" id="homeVocabBar"></div>
 
     <div class="home-section-title" id="homeFoldersTitle" style="display:none">📁 Ваші папки</div>
     <div class="home-folders" id="homeFolders">
@@ -1204,7 +1216,32 @@ function renderHome(){
   hideHomeSearch()
   renderHomeStats()
   renderHomeContinue()
+  renderHomeVocab()
   renderHomeFolders()
+}
+
+// A quick, shuffled sample of dictionary words on the Home page, so the
+// vocabulary you've built up stays visible instead of living only on
+// the Словник page. Words are clickable to copy, same as there.
+function renderHomeVocab(){
+  const titleRow=document.getElementById('homeVocabTitleRow')
+  const wrap=document.getElementById('homeVocabBar')
+  if(!wrap) return
+  const entries=DB.dictionary||[]
+  if(entries.length===0){
+    if(titleRow) titleRow.style.display='none'
+    wrap.innerHTML=''
+    return
+  }
+  if(titleRow) titleRow.style.display='flex'
+  const sample=[...entries].sort(()=>Math.random()-0.5).slice(0,12)
+  wrap.innerHTML = sample.map(d=>`
+    <div class="home-vocab-chip">
+      <span class="dict-word dict-word-a" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(d.wordA)}')">${esc(d.wordA)}</span>
+      <span class="dict-arrow">↔</span>
+      <span class="dict-word dict-word-b" title="Натисніть, щоб скопіювати" onclick="copyDictWord(this,'${escAttr(d.wordB)}')">${esc(d.wordB)}</span>
+    </div>`
+  ).join('') + `<div class="home-vocab-viewall" onclick="sidebarOpenDictionary()">Весь словник (${entries.length}) →</div>`
 }
 
 // Consecutive-day practice streak, based on distinct calendar days that
