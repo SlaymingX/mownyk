@@ -59,6 +59,45 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ptitle{font-size:21px;font-weight:600;margin-bottom:6px}
 .psub{color:var(--text2);font-size:14px;margin-bottom:22px}
 
+/* ── home hub ── */
+.home-search-row{position:relative;margin-bottom:20px}
+.home-search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:.5px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 18px rgba(0,0,0,.15);max-height:280px;overflow-y:auto;z-index:50}
+.home-search-item{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;font-size:13px;color:var(--text)}
+.home-search-item:hover{background:var(--surface2)}
+.home-search-item-flag{font-size:14px}
+.home-search-item-lang{color:var(--text3);font-size:11px;margin-left:auto;flex-shrink:0}
+.home-search-empty{padding:12px;font-size:12px;color:var(--text3);text-align:center}
+.home-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:22px}
+.home-stat-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:14px 16px}
+.home-stat-num{font-size:23px;font-weight:700;color:var(--accent);line-height:1.2}
+.home-stat-label{font-size:11.5px;color:var(--text3);margin-top:2px}
+.home-continue-card{background:linear-gradient(135deg,var(--accent-light),var(--surface) 70%);border:.5px solid var(--border);border-radius:var(--rl);padding:18px 20px;display:flex;align-items:center;gap:16px;margin-bottom:26px;cursor:pointer;transition:border-color var(--tr),transform var(--tr)}
+.home-continue-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.home-continue-emoji{font-size:32px;flex-shrink:0}
+.home-continue-info{flex:1;min-width:0}
+.home-continue-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;font-weight:600}
+.home-continue-name{font-size:16px;font-weight:600}
+.home-continue-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.home-continue-btn{flex-shrink:0}
+.home-section-title{font-size:14.5px;font-weight:600;margin:4px 0 12px;color:var(--text2)}
+.home-folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.home-folder-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:16px;transition:border-color var(--tr)}
+.home-folder-card:hover{border-color:var(--accent)}
+.home-folder-head{display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:12px}
+.home-folder-flag{font-size:26px;flex-shrink:0}
+.home-folder-name{font-size:14.5px;font-weight:600}
+.home-folder-count{font-size:11px;color:var(--text3);margin-top:1px}
+.home-folder-tasks{display:flex;flex-direction:column;gap:2px;min-height:20px}
+.home-folder-task{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:0 -8px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--text2);transition:background var(--tr)}
+.home-folder-task:hover{background:var(--surface2);color:var(--text)}
+.home-folder-task-emoji{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.home-folder-task-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-folder-empty-tasks{font-size:11.5px;color:var(--text3);padding:6px 8px}
+.home-folder-viewall{display:block;text-align:center;margin-top:10px;padding-top:10px;border-top:.5px solid var(--border);font-size:12px;color:var(--accent);cursor:pointer;font-weight:500}
+.home-folder-viewall:hover{text-decoration:underline}
+.home-addfolder-card{border:1.5px dashed var(--border2);border-radius:var(--rl);padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:var(--text2);font-size:13px;cursor:pointer;min-height:140px;grid-column:1/-1;transition:border-color var(--tr),color var(--tr)}
+.home-addfolder-card:hover{border-color:var(--accent);color:var(--accent)}
+
 /* ── lang grid ── */
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
 .lcard{background:var(--surface);border:.5px solid var(--border);border-radius:var(--rl);padding:18px 16px;cursor:pointer;transition:border-color var(--tr),box-shadow var(--tr),transform var(--tr);position:relative}
@@ -117,6 +156,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .titem-hidden{opacity:.45}
 .titem-hidden:hover{opacity:.7}
 .titem-hidden .tact{display:flex;pointer-events:auto}
+
+/* tags: filter panel above task list */
+.tags-panel{display:none;flex-wrap:wrap;gap:6px;margin:-6px 0 14px}
+.tags-panel-empty{font-size:12px;color:var(--text3)}
+.tag-filter-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:.5px solid var(--border2);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;transition:all var(--tr)}
+.tag-filter-chip:hover{background:var(--surface2);color:var(--text)}
+.tag-filter-chip-hidden{background:var(--err-bg);color:var(--err);border-color:transparent;text-decoration:line-through;opacity:.8}
+.tag-filter-count{font-size:10px;opacity:.7}
+
+/* tags: small read-only chips shown under a task name in the list */
+.titem-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.titem-tag{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--text2);border:.5px solid var(--border)}
+
+/* tags: chip-input field in the task edit modal */
+.tag-input-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.tag-input-row:empty{margin-bottom:0}
+.tag-chip{display:flex;align-items:center;gap:5px;padding:4px 6px 4px 10px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:500}
+.tag-chip-x{cursor:pointer;font-size:14px;line-height:1;padding:1px 4px;border-radius:50%;transition:background var(--tr)}
+.tag-chip-x:hover{background:rgba(0,0,0,.1)}
+
 .tadd{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:var(--rl);padding:14px 16px;display:flex;align-items:center;gap:9px;cursor:pointer;color:var(--text2);font-size:13px;transition:border-color var(--tr),color var(--tr)}
 .tadd:hover{border-color:var(--accent);color:var(--accent)}
 
@@ -371,8 +430,31 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
 
 <main class="main">
 
+  <!-- HOME (HUB) -->
+  <div class="page active" id="pgHome">
+    <div class="ptitle">🏠 Головна</div>
+    <div class="psub">Огляд прогресу та швидкий доступ до завдань</div>
+
+    <div class="home-search-row">
+      <input class="fi" id="homeSearch" placeholder="🔍 Швидкий пошук завдань за назвою…" autocomplete="off" oninput="renderHomeSearch(this.value)" onclick="if(this.value.trim())renderHomeSearch(this.value)">
+      <div class="home-search-results" id="homeSearchResults" style="display:none"></div>
+    </div>
+
+    <div class="home-stats" id="homeStats"></div>
+
+    <div id="homeContinue"></div>
+
+    <div class="home-section-title" id="homeFoldersTitle" style="display:none">📁 Ваші папки</div>
+    <div class="home-folders" id="homeFolders">
+      <div class="loading-state">
+        <div class="loading-icon">📡</div>
+        <div class="loading-text">Завантаження<span class="loading-dots"></span></div>
+      </div>
+    </div>
+  </div>
+
   <!-- LANGS -->
-  <div class="page active" id="pgLangs">
+  <div class="page" id="pgLangs">
     <div class="ptitle">Мої мови</div>
     <div class="psub">Оберіть мову для вивчення або додайте нову</div>
     <div class="lgrid" id="langGrid">
@@ -393,8 +475,10 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       <button class="sort-btn" id="sortDate" onclick="setSort('date')">📅 Дата <span class="sort-arrow" id="sortDateArrow"></span></button>
       <button class="sort-btn" id="sortWords" onclick="setSort('words')">🔢 Слова <span class="sort-arrow" id="sortWordsArrow"></span></button>
       <button class="sort-btn" id="sortAbc" onclick="setSort('abc')">🔤 Абетка <span class="sort-arrow" id="sortAbcArrow"></span></button>
+      <button class="sort-btn" id="sortTags" onclick="toggleTagsPanel()" style="display:none">🏷️ Теги</button>
       <button class="sort-btn" id="sortHidden" onclick="toggleShowHidden()" style="margin-left:auto">👁️ Сховані</button>
     </div>
+    <div class="tags-panel" id="tagsPanel" style="display:none"></div>
     <div class="tlist" id="taskList"></div>
   </div>
 
@@ -553,6 +637,12 @@ img.emoji{height:1em;width:1em;margin:0 .02em 0 .05em;vertical-align:-0.15em;dis
       </div>
     </div>
     <div class="fg"><label class="fl">Назва</label><input class="fi" id="tName" placeholder="Наприклад: Здоров'я"></div>
+    <div class="fg">
+      <label class="fl">Теги</label>
+      <div class="tag-input-row" id="tTagChips"></div>
+      <input class="fi" id="tTagInput" placeholder="Додати тег і натиснути Enter" autocomplete="off" list="tTagSuggestions" onkeydown="handleTagInputKeydown(event)">
+      <datalist id="tTagSuggestions"></datalist>
+    </div>
     <div class="mdact">
       <button class="btn" onclick="closeMo('moTask')">Скасувати</button>
       <button class="btn btn-p" onclick="saveTask()">Зберегти</button>
@@ -852,7 +942,7 @@ async function gdriveInit(){
     setSyncBadge('syncing','Завантаження…')
     await gdriveLoad()
     fetchUserPhoto()
-    renderLangs(); showPage('pgLangs')
+    renderHome(); showPage('pgHome')
     setSyncBadge('','✓ Google Drive')
     renderHdrR()
     return
@@ -877,7 +967,7 @@ async function gdriveInit(){
     setSyncBadge('syncing','Завантаження…')
     await gdriveLoad()
     fetchUserPhoto()
-    renderLangs(); showPage('pgLangs')
+    renderHome(); showPage('pgHome')
     setSyncBadge('','✓ Google Drive')
     renderHdrR()
     return
@@ -926,7 +1016,10 @@ function showPage(id){
 // browser history entry, so the Android back gesture / browser back
 // button steps back through the app instead of leaving the page.
 function historyState(){
-  return {lang:curLang, task:curTask, page: curLang||curTask ? null : (document.getElementById('pgDictionary')?.classList.contains('active') ? 'dictionary' : null)}
+  if(curLang||curTask) return {lang:curLang, task:curTask, page:null}
+  if(document.getElementById('pgDictionary')?.classList.contains('active')) return {lang:null, task:null, page:'dictionary'}
+  if(document.getElementById('pgLangs')?.classList.contains('active')) return {lang:null, task:null, page:'langs'}
+  return {lang:null, task:null, page:'home'}
 }
 function pushHistory(){
   history.pushState(historyState(), '', location.pathname+location.search)
@@ -966,8 +1059,13 @@ function applyState(state){
     showPage('pgDictionary'); renderDictionary()
     return
   }
+  if(state?.page==='langs'){
+    curLang=null; curTask=null
+    showPage('pgLangs'); renderLangs()
+    return
+  }
   curLang=null; curTask=null
-  showPage('pgLangs'); renderLangs()
+  showPage('pgHome'); renderHome()
 }
 window.addEventListener('popstate', e=>{
   applyState(e.state)
@@ -1050,11 +1148,14 @@ function closeSidebar(){
 function sidebarGoHome(){
   closeSidebar()
   curLang=null; curTask=null
-  showPage('pgLangs'); renderLangs()
+  showPage('pgHome'); renderHome()
   pushHistory()
 }
 function sidebarGoFolders(){
-  sidebarGoHome()
+  closeSidebar()
+  curLang=null; curTask=null
+  showPage('pgLangs'); renderLangs()
+  pushHistory()
 }
 function sidebarOpenDictionary(){
   closeSidebar()
@@ -1093,6 +1194,162 @@ function renderSidebarRecent(){
   ).join('')
   parseEmoji(el)
 }
+
+// ──────────────────────────────────────────────────────
+// HOME (HUB)
+// ──────────────────────────────────────────────────────
+function renderHome(){
+  const search=document.getElementById('homeSearch')
+  if(search) search.value=''
+  hideHomeSearch()
+  renderHomeStats()
+  renderHomeContinue()
+  renderHomeFolders()
+}
+
+// Consecutive-day practice streak, based on distinct calendar days that
+// have at least one task with a lastOpened timestamp. Counts backward
+// from today; if nothing has been opened yet today, counts from
+// yesterday instead so checking the app first thing doesn't zero it out.
+function computeStreak(){
+  const days=new Set()
+  DB.langs.forEach(l=>(l.tasks||[]).forEach(t=>{
+    if(t.lastOpened) days.add(new Date(t.lastOpened).toDateString())
+  }))
+  if(days.size===0) return 0
+  let streak=0
+  let cursor=new Date()
+  if(!days.has(cursor.toDateString())) cursor.setDate(cursor.getDate()-1)
+  while(days.has(cursor.toDateString())){
+    streak++
+    cursor.setDate(cursor.getDate()-1)
+  }
+  return streak
+}
+
+function renderHomeStats(){
+  const el=document.getElementById('homeStats')
+  if(!el) return
+  const langCount=DB.langs.length
+  const taskCount=DB.langs.reduce((s,l)=>s+(l.tasks?.length||0),0)
+  const dictCount=(DB.dictionary||[]).length
+  const dayMs=24*60*60*1000
+  const now=Date.now()
+  const todayCount=DB.langs.reduce((s,l)=>
+    s+(l.tasks||[]).filter(t=>t.lastOpened && (now-t.lastOpened)<dayMs).length, 0)
+  const stats=[
+    {n:langCount, l:'📁 Папок'},
+    {n:taskCount, l:'📋 Завдань усього'},
+    {n:dictCount, l:'📖 Слів у словнику'},
+    {n:todayCount, l:'🔥 Відкрито сьогодні'},
+    {n:computeStreak(), l:'⚡ Днів поспіль'},
+  ]
+  el.innerHTML=stats.map(s=>
+    `<div class="home-stat-card"><div class="home-stat-num">${s.n}</div><div class="home-stat-label">${s.l}</div></div>`
+  ).join('')
+}
+
+function renderHomeContinue(){
+  const el=document.getElementById('homeContinue')
+  if(!el) return
+  const recent=getRecentTasks()
+  if(recent.length===0){ el.innerHTML=''; return }
+  const {lang,task}=recent[0]
+  const wordCount=Math.max(extractBold(task.pA||'').length, extractBold(task.pB||'').length)
+  const meta=wordCount>0 ? `${wordCount} слів для перекладу` : 'Немає жирних слів ще'
+  el.innerHTML=`
+    <div class="home-continue-card" onclick="sidebarOpenTask('${lang.id}','${task.id}')">
+      <div class="home-continue-emoji">${esc(task.emoji||'📝')}</div>
+      <div class="home-continue-info">
+        <div class="home-continue-label">Продовжити навчання</div>
+        <div class="home-continue-name">${esc(lang.flag)} ${esc(task.name)}</div>
+        <div class="home-continue-meta">${esc(meta)}</div>
+      </div>
+      <button class="btn btn-p btn-sm home-continue-btn" onclick="event.stopPropagation();sidebarOpenTask('${lang.id}','${task.id}')">Продовжити →</button>
+    </div>`
+  parseEmoji(el)
+}
+
+function renderHomeFolders(){
+  const wrap=document.getElementById('homeFolders')
+  const titleEl=document.getElementById('homeFoldersTitle')
+  if(!wrap) return
+  if(DB.langs.length===0){
+    if(titleEl) titleEl.style.display='none'
+    wrap.innerHTML=`<div class="home-addfolder-card" onclick="addLangM()"><span class="plus" style="font-size:26px;font-weight:300">+</span><span>Додати першу мову</span></div>`
+    return
+  }
+  if(titleEl) titleEl.style.display='block'
+  let h=''
+  DB.langs.forEach(l=>{
+    const tasks=l.tasks||[]
+    // 5 most-recently-opened tasks in this folder; if none have ever
+    // been opened yet, fall back to showing the first few tasks so the
+    // card isn't empty for a brand-new folder.
+    const recentHere=[...tasks].filter(t=>t.lastOpened).sort((a,b)=>(b.lastOpened||0)-(a.lastOpened||0)).slice(0,5)
+    const showList=recentHere.length ? recentHere : tasks.slice(0,5)
+    const tasksHtml=showList.length
+      ? showList.map(t=>
+          `<div class="home-folder-task" onclick="sidebarOpenTask('${l.id}','${t.id}')">
+            <span class="home-folder-task-emoji">${esc(t.emoji||'📝')}</span>
+            <span class="home-folder-task-name">${esc(t.name)}</span>
+          </div>`
+        ).join('')
+      : `<div class="home-folder-empty-tasks">Немає завдань — натисніть, щоб додати</div>`
+    h+=`<div class="home-folder-card">
+      <div class="home-folder-head" onclick="openLang('${l.id}')">
+        <span class="home-folder-flag">${l.flag}</span>
+        <div>
+          <div class="home-folder-name">${esc(l.name)}</div>
+          <div class="home-folder-count">${tasks.length} завд.</div>
+        </div>
+      </div>
+      <div class="home-folder-tasks">${tasksHtml}</div>
+      <div class="home-folder-viewall" onclick="openLang('${l.id}')">Переглянути все →</div>
+    </div>`
+  })
+  wrap.innerHTML=h
+  parseEmoji(wrap)
+}
+
+// Quick global search across all tasks in all folders, from the Home page.
+function renderHomeSearch(query){
+  const box=document.getElementById('homeSearchResults')
+  if(!box) return
+  const q=query.trim().toLowerCase()
+  if(!q){ hideHomeSearch(); return }
+  const matches=[]
+  DB.langs.forEach(l=>{
+    (l.tasks||[]).forEach(t=>{
+      if((t.name||'').toLowerCase().includes(q)) matches.push({lang:l, task:t})
+    })
+  })
+  if(matches.length===0){
+    box.innerHTML=`<div class="home-search-empty">Нічого не знайдено</div>`
+  } else {
+    box.innerHTML=matches.slice(0,12).map(({lang,task})=>
+      `<div class="home-search-item" onclick="sidebarOpenTask('${lang.id}','${task.id}')">
+        <span class="home-search-item-flag">${lang.flag}</span>
+        <span>${esc(task.emoji||'📝')} ${esc(task.name)}</span>
+        <span class="home-search-item-lang">${esc(lang.name)}</span>
+      </div>`
+    ).join('')
+  }
+  box.style.display='block'
+  parseEmoji(box)
+}
+function hideHomeSearch(){
+  const box=document.getElementById('homeSearchResults')
+  if(box){ box.style.display='none'; box.innerHTML='' }
+}
+// Close the search dropdown when clicking outside it.
+document.addEventListener('mousedown', e=>{
+  const box=document.getElementById('homeSearchResults')
+  const row=document.querySelector('.home-search-row')
+  if(box && box.style.display==='block' && row && !row.contains(e.target)){
+    hideHomeSearch()
+  }
+})
 function goLangs(){
   if(curTask||curLang){ history.back(); return }
   curLang=null;curTask=null;showPage('pgLangs');renderLangs()
@@ -1195,6 +1452,31 @@ function getTaskSort(){
 function getShowHiddenTasks(){
   if(!DB.settings) DB.settings={}
   return !!DB.settings.showHiddenTasks
+}
+function getHiddenTags(){
+  if(!DB.settings) DB.settings={}
+  if(!Array.isArray(DB.settings.hiddenTags)) DB.settings.hiddenTags=[]
+  return DB.settings.hiddenTags
+}
+function toggleTagHidden(tag){
+  const hidden=getHiddenTags()
+  const idx=hidden.indexOf(tag)
+  if(idx>=0) hidden.splice(idx,1); else hidden.push(tag)
+  save()
+  renderTasks()
+}
+// All distinct tags used by tasks in one folder (for the filter panel).
+function getFolderTags(tasks){
+  const set=new Set()
+  ;(tasks||[]).forEach(t=>(t.tags||[]).forEach(tag=>{ if(tag) set.add(tag) }))
+  return [...set].sort((a,b)=>a.localeCompare(b,'uk'))
+}
+// All distinct tags used anywhere, across every folder (for autocomplete
+// suggestions when adding a tag to a task).
+function getAllTags(){
+  const set=new Set()
+  DB.langs.forEach(l=>(l.tasks||[]).forEach(t=>(t.tags||[]).forEach(tag=>{ if(tag) set.add(tag) })))
+  return [...set].sort((a,b)=>a.localeCompare(b,'uk'))
 }
 
 function setSort(key){
@@ -1445,6 +1727,16 @@ function renderSortBar(){
     arr.textContent = isActive ? (taskSort.asc ? '↑' : '↓') : ''
   })
 
+  const tagsBtn = document.getElementById('sortTags')
+  if(tagsBtn){
+    const folderTags = getFolderTags(allTasks)
+    tagsBtn.style.display = folderTags.length > 0 ? 'flex' : 'none'
+    const hiddenActiveCount = folderTags.filter(t=>getHiddenTags().includes(t)).length
+    tagsBtn.classList.toggle('active', tagsPanelOpen || hiddenActiveCount>0)
+    tagsBtn.textContent = hiddenActiveCount>0 ? `🏷️ Теги (${hiddenActiveCount} прих.)` : '🏷️ Теги'
+  }
+  if(tagsPanelOpen) renderTagsPanel()
+
   const hiddenBtn = document.getElementById('sortHidden')
   if(hiddenBtn){
     const hiddenCount = allTasks.filter(t=>t.hidden).length
@@ -1455,19 +1747,56 @@ function renderSortBar(){
   }
 }
 
+// ── Tag filter panel ────────────────────────────────────
+// Purely a UI-open/closed flag, not persisted — but which tags are
+// hidden (getHiddenTags/toggleTagHidden above) IS persisted, since
+// that's the part that should survive a refresh.
+let tagsPanelOpen=false
+function toggleTagsPanel(){
+  tagsPanelOpen=!tagsPanelOpen
+  const panel=document.getElementById('tagsPanel')
+  if(panel) panel.style.display=tagsPanelOpen?'flex':'none'
+  if(tagsPanelOpen) renderTagsPanel()
+  renderSortBar()
+}
+function renderTagsPanel(){
+  const panel=document.getElementById('tagsPanel')
+  if(!panel) return
+  const lang=gl(curLang)
+  const tags=getFolderTags(lang?.tasks)
+  if(tags.length===0){
+    panel.innerHTML=`<div class="tags-panel-empty">У цій папці ще немає тегів. Додайте їх під час редагування завдання.</div>`
+    return
+  }
+  const hidden=getHiddenTags()
+  panel.innerHTML=tags.map(tag=>{
+    const isHidden=hidden.includes(tag)
+    const count=(lang.tasks||[]).filter(t=>(t.tags||[]).includes(tag)).length
+    return `<button class="tag-filter-chip${isHidden?' tag-filter-chip-hidden':''}" onclick="toggleTagHidden('${escAttr(tag)}')" title="${isHidden?'Показати завдання з цим тегом':'Сховати завдання з цим тегом'}">
+      <span>${isHidden?'🙈':'🏷️'} ${esc(tag)}</span><span class="tag-filter-count">${count}</span>
+    </button>`
+  }).join('')
+}
+
 function renderTasks(){
   const lang=gl(curLang); let h=''
   const sorted = getSortedTasks(lang?.tasks)
-  const visible = getShowHiddenTasks() ? sorted : sorted.filter(t=>!t.hidden)
+  const hiddenTags = getHiddenTags()
+  const visible = (getShowHiddenTasks() ? sorted : sorted.filter(t=>!t.hidden))
+    .filter(t=>!(t.tags||[]).some(tag=>hiddenTags.includes(tag)))
   visible.forEach(t=>{
     const wordCount=Math.max(extractBold(t.pA||'').length, extractBold(t.pB||'').length)
     const meta=wordCount>0 ? `${wordCount} ${pluralizeWords(wordCount)}` : 'Порожнє'
     const hiddenClass = t.hidden ? ' titem-hidden' : ''
+    const tagsHtml = (t.tags&&t.tags.length)
+      ? `<div class="titem-tags">${t.tags.map(tag=>`<span class="titem-tag">${esc(tag)}</span>`).join('')}</div>`
+      : ''
     h+=`<div class="titem${hiddenClass}" onclick="openTask('${t.id}')">
       <div class="temi">${t.emoji||'📝'}</div>
       <div class="tinf">
         <div class="tname">${esc(t.name)}</div>
         <div class="tmeta">${meta}</div>
+        ${tagsHtml}
       </div>
       <div class="tact" onclick="event.stopPropagation()">
         <button class="btn btn-ico btn-sm" title="${t.hidden?'Показати':'Сховати'}" onclick="toggleTaskHidden('${t.id}')">${t.hidden?'🙈':'👁️'}</button>
@@ -1496,6 +1825,7 @@ function addTaskM(){
   document.getElementById('tEmoSearch').value=''
   document.getElementById('tName').value=''
   document.getElementById('emojiPanel').style.display='none'
+  setTaskTags([])
   openMo('moTask')
 }
 function editTaskM(id){
@@ -1505,6 +1835,7 @@ function editTaskM(id){
   document.getElementById('tEmoSearch').value=''
   document.getElementById('tName').value=t.name
   document.getElementById('emojiPanel').style.display='none'
+  setTaskTags(t.tags||[])
   openMo('moTask')
 }
 function flagToCode(flag){
@@ -1524,16 +1855,58 @@ function getDirLabels(flag){
   if(code==='UA') return {lA:'RU → UA', lB:'UA → RU'}
   return {lA:`UA → ${code}`, lB:`${code} → UA`}
 }
+
+// ── Tags (task edit modal) ──────────────────────────────
+let curTaskTags=[]
+function setTaskTags(tags){
+  curTaskTags=[...tags]
+  const dl=document.getElementById('tTagSuggestions')
+  if(dl) dl.innerHTML=getAllTags().map(t=>`<option value="${escAttr(t)}">`).join('')
+  document.getElementById('tTagInput').value=''
+  renderTaskTagChips()
+}
+function renderTaskTagChips(){
+  const wrap=document.getElementById('tTagChips')
+  if(!wrap) return
+  wrap.innerHTML=curTaskTags.map(tag=>
+    `<span class="tag-chip">${esc(tag)}<span class="tag-chip-x" onclick="removeTaskTag('${escAttr(tag)}')">×</span></span>`
+  ).join('')
+}
+function addTaskTag(raw){
+  const tag=(raw||'').trim()
+  if(!tag) return
+  if(!curTaskTags.some(t=>t.toLowerCase()===tag.toLowerCase())) curTaskTags.push(tag)
+  document.getElementById('tTagInput').value=''
+  renderTaskTagChips()
+}
+function removeTaskTag(tag){
+  curTaskTags=curTaskTags.filter(t=>t!==tag)
+  renderTaskTagChips()
+}
+function handleTagInputKeydown(e){
+  if(e.key==='Enter'||e.key===','){
+    e.preventDefault()
+    addTaskTag(e.target.value)
+  } else if(e.key==='Backspace' && !e.target.value && curTaskTags.length){
+    // Backspace on an empty field removes the last chip, like most tag inputs.
+    removeTaskTag(curTaskTags[curTaskTags.length-1])
+  }
+}
+
 function saveTask(){
   const emoji=(curTaskEmojiValue||'').trim()||'📝'
   const name=document.getElementById('tName').value.trim()
   if(!name){toast('Введіть назву','err');return}
+  // Catch a tag left typed in the input but not yet committed with Enter.
+  const pendingTag=document.getElementById('tTagInput').value.trim()
+  if(pendingTag) addTaskTag(pendingTag)
+  const tags=[...curTaskTags]
   const lang=gl(curLang); if(!lang.tasks)lang.tasks=[]
-  if(editingTask){const t=gt(curLang,editingTask);t.emoji=emoji;t.name=name}
+  if(editingTask){const t=gt(curLang,editingTask);t.emoji=emoji;t.name=name;t.tags=tags}
   else {
     const lang2=gl(curLang)
     const {lA,lB}=getDirLabels(lang2.flag)
-    lang.tasks.push({id:uid(),emoji,name,pA:'',pB:'',lA,lB})
+    lang.tasks.push({id:uid(),emoji,name,pA:'',pB:'',lA,lB,tags})
   }
   save(); closeMo('moTask'); renderTasks()
   toast(editingTask?'Збережено':'Завдання створено ✅','ok')
@@ -2472,7 +2845,7 @@ function textToHtml(text){
 // ──────────────────────────────────────────────────────
 async function init(){
   await gdriveInit()
-  renderLangs(); showPage('pgLangs')
+  renderHome(); showPage('pgHome')
   renderHdrR()
   // Establish a base history entry for the langs page, so popstate
   // has a defined state to return to (replaceState, not pushState —
